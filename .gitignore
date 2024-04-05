@@ -1,0 +1,4 @@
+.idea
+default.pgo.tmp
+.env
+docker-compose.override.yml
