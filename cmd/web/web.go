@@ -353,14 +353,14 @@ func main() {
 			for _, effort := range effortSteps {
 				e := views.CalculateShareTimePageEffortEntry{
 					Effort:             effort,
-					Probability:        utils.ProbabilityEffort(effort) * 100,
+					Probability:        cmdutils.ProbabilityEffort(effort) * 100,
 					Between:            (float64(poolInfo.SideChain.LastBlock.Difficulty) * (effort / 100)) / currentHashRate,
 					BetweenSolo:        (float64(poolInfo.MainChain.Difficulty.Lo) * (effort / 100)) / currentHashRate,
 					ShareProbabilities: make([]float64, shareSteps+1),
 				}
 
 				for i := uint64(0); i <= shareSteps; i++ {
-					e.ShareProbabilities[i] = utils.ProbabilityNShares(i, effort)
+					e.ShareProbabilities[i] = cmdutils.ProbabilityNShares(i, effort)
 				}
 
 				efforts = append(efforts, e)
@@ -1182,7 +1182,7 @@ func main() {
 	})
 
 	serveMux.HandleFunc("/proof/{block:[0-9a-f]+|[0-9]+}/{index:[0-9]+}", func(writer http.ResponseWriter, request *http.Request) {
-		identifier := utils.DecodeHexBinaryNumber(mux.Vars(request)["block"])
+		identifier := cmdutils.DecodeHexBinaryNumber(mux.Vars(request)["block"])
 		requestIndex := toUint64(mux.Vars(request)["index"])
 
 		block := getTypeFromAPI[index.SideBlock](fmt.Sprintf("block_by_id/%s", identifier))

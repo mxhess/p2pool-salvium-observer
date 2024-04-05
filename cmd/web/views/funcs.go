@@ -7,6 +7,7 @@ import (
 	"git.gammaspectra.live/P2Pool/consensus/v3/types"
 	"git.gammaspectra.live/P2Pool/consensus/v3/utils"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
+	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"github.com/mazznoer/colorgrad"
 	"strconv"
 	"strings"
@@ -103,12 +104,12 @@ func time_duration_long[T int64 | uint64 | int | float64](v T) string {
 }
 
 func benc(n uint64) string {
-	return utils.EncodeBinaryNumber(n)
+	return cmdutils.EncodeBinaryNumber(n)
 }
 
 func bencstr(val string) string {
 	if n, err := strconv.ParseUint(val, 10, 0); err == nil {
-		return utils.EncodeBinaryNumber(n)
+		return cmdutils.EncodeBinaryNumber(n)
 	} else {
 		panic(err)
 	}
@@ -147,7 +148,7 @@ const effortRangeStart = 0.15
 const effortRangeEnd = 0.85
 
 func effort_color(effort float64) string {
-	probability := utils.ProbabilityEffort(effort)
+	probability := cmdutils.ProbabilityEffort(effort)
 
 	// rescale
 	probability *= effortRangeEnd - effortRangeStart

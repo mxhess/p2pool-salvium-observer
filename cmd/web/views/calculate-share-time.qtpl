@@ -1,4 +1,4 @@
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/utils" %}
+{% import cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils" %}
 {% code
 type CalculateShareTimePage struct {
 	// inherit from base page, so its' title is used in error page.
@@ -147,7 +147,7 @@ type CalculateShareTimePageEffortEntry struct {
             <td>
                 {%s time_duration_long(e.Between) %}
             </td>
-            {% code var mode = utils.ProbabilityMode(e.ShareProbabilities...) %}
+            {% code var mode = cmdutils.ProbabilityMode(e.ShareProbabilities...) %}
             {% for _, p := range e.ShareProbabilities %}
             {% if p*100 > 1 %}
             <td class="{% if mode == p %}mode{% else %}{% endif %}" title="{%f.5 p*100 %}%">{%f.0 p*100 %}%</td>

@@ -3,9 +3,9 @@ module git.gammaspectra.live/P2Pool/observer
 go 1.22
 
 require (
-	git.gammaspectra.live/P2Pool/consensus/v3 v3.0.2
+	git.gammaspectra.live/P2Pool/consensus/v3 v3.1.0
 	git.gammaspectra.live/P2Pool/go-monero v0.0.0-20230410011208-910450c4a523
-	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20240403175747-82cff4d3bd01
+	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20240405162359-7332c3feaedd
 	github.com/goccy/go-json v0.10.2
 	github.com/gorilla/mux v1.8.1
 	github.com/mazznoer/colorgrad v0.9.1
@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20230701100949-027561bd2a33 // indirect
+	git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20240405085108-e2f706cb5c00 // indirect
 	git.gammaspectra.live/P2Pool/go-randomx v0.0.0-20221027085532-f46adfce03a7 // indirect
 	git.gammaspectra.live/P2Pool/moneroutil v0.0.0-20230722215223-18ecc51ae61e // indirect
 	git.gammaspectra.live/P2Pool/randomx-go-bindings v0.0.0-20230514082649-9c5f18cd5a71 // indirect

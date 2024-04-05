@@ -1196,10 +1196,10 @@ func main() {
 	})
 
 	serveMux.HandleFunc("/api/redirect/block/{main_height:[0-9]+|.?[0-9A-Za-z]+$}", func(writer http.ResponseWriter, request *http.Request) {
-		http.Redirect(writer, request, fmt.Sprintf("%s/explorer/block/%d", cmdutils.GetSiteUrl(cmdutils.SiteKeyP2PoolIo, request.Host == torHost), utils.DecodeBinaryNumber(mux.Vars(request)["main_height"])), http.StatusFound)
+		http.Redirect(writer, request, fmt.Sprintf("%s/explorer/block/%d", cmdutils.GetSiteUrl(cmdutils.SiteKeyP2PoolIo, request.Host == torHost), cmdutils.DecodeBinaryNumber(mux.Vars(request)["main_height"])), http.StatusFound)
 	})
 	serveMux.HandleFunc("/api/redirect/transaction/{tx_id:.?[0-9A-Za-z]+}", func(writer http.ResponseWriter, request *http.Request) {
-		txId := utils.DecodeHexBinaryNumber(mux.Vars(request)["tx_id"])
+		txId := cmdutils.DecodeHexBinaryNumber(mux.Vars(request)["tx_id"])
 		if len(txId) != types.HashSize*2 {
 			writer.WriteHeader(http.StatusNotFound)
 			return
@@ -1208,7 +1208,7 @@ func main() {
 		http.Redirect(writer, request, fmt.Sprintf("%s/explorer/tx/%s", cmdutils.GetSiteUrl(cmdutils.SiteKeyP2PoolIo, request.Host == torHost), txId), http.StatusFound)
 	})
 	serveMux.HandleFunc("/api/redirect/coinbase/{coinbase:[0-9]+|.?[0-9A-Za-z]+$}", func(writer http.ResponseWriter, request *http.Request) {
-		foundTarget := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1", 1, utils.DecodeBinaryNumber(mux.Vars(request)["coinbase"])))
+		foundTarget := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1", 1, cmdutils.DecodeBinaryNumber(mux.Vars(request)["coinbase"])))
 		if foundTarget == nil {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusNotFound)
@@ -1224,7 +1224,7 @@ func main() {
 		http.Redirect(writer, request, fmt.Sprintf("%s/explorer/tx/%s", cmdutils.GetSiteUrl(cmdutils.SiteKeyP2PoolIo, request.Host == torHost), foundTarget.MainBlock.Id.String()), http.StatusFound)
 	})
 	serveMux.HandleFunc("/api/redirect/share/{height:[0-9]+|.?[0-9A-Za-z]+$}", func(writer http.ResponseWriter, request *http.Request) {
-		c := utils.DecodeBinaryNumber(mux.Vars(request)["height"])
+		c := cmdutils.DecodeBinaryNumber(mux.Vars(request)["height"])
 
 		blockHeight := c >> 16
 		blockIdStart := c & 0xFFFF
@@ -1265,7 +1265,7 @@ func main() {
 	})
 
 	serveMux.HandleFunc("/api/redirect/prove/{height_index:[0-9]+|.[0-9A-Za-z]+}", func(writer http.ResponseWriter, request *http.Request) {
-		i := utils.DecodeBinaryNumber(mux.Vars(request)["height_index"])
+		i := cmdutils.DecodeBinaryNumber(mux.Vars(request)["height_index"])
 		n := uint64(math.Ceil(math.Log2(float64(consensus.ChainWindowSize * 4))))
 
 		height := i >> n
@@ -1293,8 +1293,8 @@ func main() {
 	})
 
 	serveMux.HandleFunc("/api/redirect/prove/{height:[0-9]+|.[0-9A-Za-z]+}/{miner:[0-9]+|.?[0-9A-Za-z]+}", func(writer http.ResponseWriter, request *http.Request) {
-		b := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1", 1, utils.DecodeBinaryNumber(mux.Vars(request)["height"])))
-		miner := indexDb.GetMiner(utils.DecodeBinaryNumber(mux.Vars(request)["miner"]))
+		b := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1", 1, cmdutils.DecodeBinaryNumber(mux.Vars(request)["height"])))
+		miner := indexDb.GetMiner(cmdutils.DecodeBinaryNumber(mux.Vars(request)["miner"]))
 		if b == nil || miner == nil {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusNotFound)
@@ -1325,7 +1325,7 @@ func main() {
 	})
 
 	serveMux.HandleFunc("/api/redirect/miner/{miner:[0-9]+|.?[0-9A-Za-z]+}", func(writer http.ResponseWriter, request *http.Request) {
-		miner := indexDb.GetMiner(utils.DecodeBinaryNumber(mux.Vars(request)["miner"]))
+		miner := indexDb.GetMiner(cmdutils.DecodeBinaryNumber(mux.Vars(request)["miner"]))
 		if miner == nil {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusNotFound)

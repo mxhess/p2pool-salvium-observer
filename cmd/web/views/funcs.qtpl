@@ -3,6 +3,7 @@
 {% import "git.gammaspectra.live/P2Pool/consensus/v3/utils" %}
 {% import "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain" %}
 {% import "git.gammaspectra.live/P2Pool/observer-cmd-utils/index" %}
+{% import cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils" %}
 {% import p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/types" %}
 
 {% import "encoding/binary" %}
@@ -85,38 +86,38 @@
 {% func shorten(ctx *GlobalRequestContext, val any, n int) %}
     {% switch s := val.(type) %}
     {% case string %}
-		{%s utils.Shorten(s, n) %}
+		{%s cmdutils.Shorten(s, n) %}
     {% case []byte %}
-		{%z= utils.ShortenSlice(slices.Clone(s), n) %}
+		{%z= cmdutils.ShortenSlice(slices.Clone(s), n) %}
     {% case crypto.PrivateKeyBytes %}
 	    {% code
 	    fasthex.Encode(ctx.HexBuffer[:], s[:])
 	    %}
-	    {%z= utils.ShortenSlice(ctx.HexBuffer[:], n) %}
+	    {%z= cmdutils.ShortenSlice(ctx.HexBuffer[:], n) %}
     {% case crypto.PublicKeyBytes %}
 	    {% code
 	    fasthex.Encode(ctx.HexBuffer[:], s[:])
 	    %}
-	    {%z= utils.ShortenSlice(ctx.HexBuffer[:], n) %}
+	    {%z= cmdutils.ShortenSlice(ctx.HexBuffer[:], n) %}
     {% case crypto.PrivateKey %}
 	    {% code
 	    fasthex.Encode(ctx.HexBuffer[:], s.AsSlice())
 	    %}
-	    {%z= utils.ShortenSlice(ctx.HexBuffer[:], n) %}
+	    {%z= cmdutils.ShortenSlice(ctx.HexBuffer[:], n) %}
     {% case crypto.PublicKey %}
 	    {% code
 	    fasthex.Encode(ctx.HexBuffer[:], s.AsSlice())
 	    %}
-	    {%z= utils.ShortenSlice(ctx.HexBuffer[:], n) %}
+	    {%z= cmdutils.ShortenSlice(ctx.HexBuffer[:], n) %}
     {% case types.Hash %}
 	    {% code
 	    fasthex.Encode(ctx.HexBuffer[:], s[:])
 	    %}
-	    {%z= utils.ShortenSlice(ctx.HexBuffer[:], n) %}
+	    {%z= cmdutils.ShortenSlice(ctx.HexBuffer[:], n) %}
     {% case fmt.Stringer %}
-		{%s utils.Shorten(s.String(), n) %}
+		{%s cmdutils.Shorten(s.String(), n) %}
     {% default %}
-		{%s utils.Shorten(fmt.Sprintf("%v", val), n) %}
+		{%s cmdutils.Shorten(fmt.Sprintf("%v", val), n) %}
     {% endswitch %}
 {% endfunc %}
 
@@ -129,18 +130,18 @@
     {% switch s := val.(type) %}
     {% case types.Hash %}
         {% code
-        dst := utils.EncodeSliceBinaryNumber(buf[:], s[:])
+        dst := cmdutils.EncodeSliceBinaryNumber(buf[:], s[:])
         %}
         {%z= dst[:] %}
     {% case crypto.PrivateKeyBytes %}
         {% code
-        dst := utils.EncodeSliceBinaryNumber(buf[:], s[:])
+        dst := cmdutils.EncodeSliceBinaryNumber(buf[:], s[:])
         %}
         {%z= dst[:] %}
     {% case string %}
-        {%s= utils.EncodeHexBinaryNumber(s) %}
+        {%s= cmdutils.EncodeHexBinaryNumber(s) %}
     {% case fmt.Stringer %}
-		{%s= utils.EncodeHexBinaryNumber(s.String()) %}
+		{%s= cmdutils.EncodeHexBinaryNumber(s.String()) %}
     {% default %}
 		panic("type not allowed")
     {% endswitch %}
