@@ -7,6 +7,10 @@ type ApiPage struct {
 
 	PoolInfoExample cmdutils.PoolInfoResult
 }
+
+func (p *ApiPage) Name() string {
+    return "api"
+}
 %}
 
 {% func (p *ApiPage) Style() %}
@@ -28,7 +32,7 @@ pre {
         <h2>API Documentation</h2>
         <p>This site and API is in development. As such, returned data could be different, or methods be deprecated / replaced anytime. Though it will be avoided if possible without affecting performance :)</p>
         <p>All the data showed on this site comes from the API, P2Pool or Monero. So if new features are added on site, it's possible to do so via the API.</p>
-        <p>At the moment there is no broad rate-limiting. If abuse is detected, temporary rate limits can be put in place. You can always run your own instance of this site / API / consensus, see <a href="{%s p.Context().GetUrl("git.gammaspectra.live") %}/P2Pool/observer">source code</a>.</p>
+        <p>At the moment there is no broad rate-limiting. If abuse is detected, temporary rate limits can be put in place. You can always run your own instance of this site / API / consensus, see <a href="{%s p.Context().GetUrl("git.gammaspectra.live") %}/P2Pool/p2pool-observer">source code</a>.</p>
         <p>Some historical data could be incomplete. Some block records do not exist.</p>
         <p>In general, mandatory parameters are specified on the path, optional parameters on query.</p>
         <p><strong>Knowledge of P2Pool internals is strongly advised.</strong> Feel free to ask questions on IRC or Matrix.</p>

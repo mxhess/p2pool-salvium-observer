@@ -6,8 +6,10 @@ require (
 	git.gammaspectra.live/P2Pool/consensus/v3 v3.0.2
 	git.gammaspectra.live/P2Pool/go-monero v0.0.0-20230410011208-910450c4a523
 	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20240403175747-82cff4d3bd01
+	github.com/andybalholm/brotli v1.1.0
 	github.com/goccy/go-json v0.10.2
 	github.com/gorilla/mux v1.8.1
+	github.com/klauspost/compress v1.17.7
 	github.com/mazznoer/colorgrad v0.9.1
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc
 	github.com/valyala/quicktemplate v1.7.0
