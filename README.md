@@ -27,12 +27,12 @@ You can also use the OpenAlias `p2pool.observer` directly on the GUI.
 
 ## Operational instructions
 
-A docker-compose setup is provided and documented.
+A docker compose setup is provided and documented.
 
 If desired each tool can be run individually, but that is left to the user to configure, refer to Docker setup as reference.  
 
 ### Requirements
-* `docker-compose` or similar
+* `docker compose` or similar
 * `git` installed
 * Disk space for new incoming historic data. Assume a few tens of MiB per day
 * A monerod non-pruned node running in unrestricted mode preferably, but can work with restricted mode. 
@@ -46,18 +46,18 @@ $ cp .env.example .env
 ```
 Edit `.env` via your preferred editor, specifically around the monerod host options and generate keys for the Tor hidden service.
 
-If you want to make changes to additional docker-compose settings, do not edit `docker-compose.yml`. Instead, create `docker-compose.override.yml` and place new settings there. See [Multiple Compose files documentation](https://docs.docker.com/compose/extends/#multiple-compose-files).
+If you want to make changes to additional docker compose settings, do not edit `docker-compose.yml`. Instead, create `docker-compose.override.yml` and place new settings there. See [Multiple Compose files documentation](https://docs.docker.com/compose/extends/#multiple-compose-files).
 
 ### Update / Apply new settings
 Within the instance folder, run this command
 ```bash
 $ git checkout -- '*/default.pgo'; \
 git pull && \
-docker-compose build --pull && \
-docker-compose up -d && \
-docker-compose restart tor site pgo-p2pool pgo-daemon pgo-web pgo-api
+docker compose build --pull && \
+docker compose up -d && \
+docker compose restart tor site
 ```
-`docker-compose restart tor` is necessary due to the tor server not refreshing DNS of the containers.
+`docker compose restart tor` is necessary due to the tor server not refreshing DNS of the containers.
 
 It is recommended to run `docker system prune` regularly or after update to cleanup no longer used images.
 
