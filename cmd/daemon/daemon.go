@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"git.gammaspectra.live/P2Pool/consensus/v3/monero"
 	"git.gammaspectra.live/P2Pool/consensus/v3/monero/client"
+	"git.gammaspectra.live/P2Pool/consensus/v3/monero/client/rpc/daemon"
 	"git.gammaspectra.live/P2Pool/consensus/v3/monero/randomx"
 	p2poolapi "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/api"
 	"git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain"
 	"git.gammaspectra.live/P2Pool/consensus/v3/types"
 	"git.gammaspectra.live/P2Pool/consensus/v3/utils"
-	"git.gammaspectra.live/P2Pool/go-monero/pkg/rpc/daemon"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"net/http"
@@ -326,16 +326,15 @@ func main() {
 			} else {
 				var prevHash types.Hash
 				for cur, _ := client.GetDefaultClient().GetBlockHeaderByHash(mainTip.Id, ctx); cur != nil; cur, _ = client.GetDefaultClient().GetBlockHeaderByHash(prevHash, ctx) {
-					curHash, _ := types.HashFromString(cur.Hash)
 					curDb := indexDb.GetMainBlockByHeight(cur.Height)
 					if curDb != nil {
-						if curDb.Id == curHash {
+						if curDb.Id == cur.Hash {
 							break
 						} else { //there has been a swap
 							doCheckOfOldBlocks.Store(true)
 						}
 					}
-					utils.Logf("MAIN", "Insert main block %d, id %s", cur.Height, curHash)
+					utils.Logf("MAIN", "Insert main block %d, id %s", cur.Height, cur.Hash)
 					func() {
 						sideBlocksLock.Lock()
 						defer sideBlocksLock.Unlock()
@@ -344,7 +343,7 @@ func main() {
 						if err := scanHeader(*cur); err != nil {
 							utils.Panic(err)
 						}
-						prevHash, _ = types.HashFromString(cur.PrevHash)
+						prevHash = cur.PrevHash
 					}()
 				}
 			}
