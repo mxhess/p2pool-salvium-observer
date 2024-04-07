@@ -2,7 +2,7 @@
 .env
 .env.example
 .gitignore
-testdata/
+pgo/
 default.pgo.tmp
 docker/nginx
 docker/postgres
