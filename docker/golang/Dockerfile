@@ -23,6 +23,8 @@ WORKDIR /usr/src/p2pool
 
 ARG GOPROXY=""
 ENV GOPROXY=${GOPROXY}
+ARG GOAMD64=""
+ENV GOAMD64=${GOAMD64}
 
 COPY go.mod go.sum ./
 RUN go mod download -x && go mod verify

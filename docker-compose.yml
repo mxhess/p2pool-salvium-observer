@@ -109,6 +109,7 @@ services:
       args:
         - BUILD_BINARY=p2pool
         - GOPROXY=${GOPROXY}
+        - GOAMD64=${GOAMD64}
     restart: always
     security_opt:
       - no-new-privileges:true
@@ -138,6 +139,7 @@ services:
       args:
         - BUILD_BINARY=api
         - GOPROXY=${GOPROXY}
+        - GOAMD64=${GOAMD64}
     restart: always
     environment:
       - NET_SERVICE_ADDRESS=${NET_SERVICE_ADDRESS}
@@ -166,6 +168,7 @@ services:
       args:
         - BUILD_BINARY=web
         - GOPROXY=${GOPROXY}
+        - GOAMD64=${GOAMD64}
     restart: always
     environment:
       - TOR_SERVICE_ADDRESS=${TOR_SERVICE_ADDRESS}
@@ -191,6 +194,7 @@ services:
       args:
         - BUILD_BINARY=daemon
         - GOPROXY=${GOPROXY}
+        - GOAMD64=${GOAMD64}
     restart: always
     environment:
       - TOR_SERVICE_ADDRESS=${TOR_SERVICE_ADDRESS}
