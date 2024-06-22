@@ -151,7 +151,7 @@
 	{% if softwareId == 0 && softwareVersion == 0 %}
 		Not present
 	{% else %}
-	    {%s= softwareId.String() %}{%s= ` ` %}{%s= softwareVersion.String() %}
+	    {%s= softwareId.String() %}{%s= ` ` %}{%s= softwareVersion.SoftwareAwareString(softwareId) %}
 	{% endif %}
 {% endfunc %}
 
