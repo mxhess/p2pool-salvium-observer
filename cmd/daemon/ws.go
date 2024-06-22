@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"git.gammaspectra.live/P2Pool/consensus/v3/p2pool/api"
-	types2 "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/types"
-	"git.gammaspectra.live/P2Pool/consensus/v3/utils"
+	types2 "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/types"
+	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
+	"git.gammaspectra.live/P2Pool/observer-cmd-utils/api"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"net/http"

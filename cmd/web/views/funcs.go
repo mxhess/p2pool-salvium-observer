@@ -3,9 +3,9 @@ package views
 import (
 	hex2 "encoding/hex"
 	"fmt"
-	"git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain"
-	"git.gammaspectra.live/P2Pool/consensus/v3/types"
-	"git.gammaspectra.live/P2Pool/consensus/v3/utils"
+	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
+	"git.gammaspectra.live/P2Pool/consensus/v4/types"
+	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"github.com/mazznoer/colorgrad"

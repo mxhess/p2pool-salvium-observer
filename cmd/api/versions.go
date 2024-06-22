@@ -1,7 +1,7 @@
 package main
 
 import (
-	"git.gammaspectra.live/P2Pool/consensus/v3/utils"
+	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"io"
 	"net/http"

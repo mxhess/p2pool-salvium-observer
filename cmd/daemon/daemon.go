@@ -4,14 +4,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero/client"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero/client/rpc/daemon"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero/randomx"
-	p2poolapi "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/api"
-	"git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain"
-	"git.gammaspectra.live/P2Pool/consensus/v3/types"
-	"git.gammaspectra.live/P2Pool/consensus/v3/utils"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/client"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/client/rpc/daemon"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/randomx"
+	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
+	"git.gammaspectra.live/P2Pool/consensus/v4/types"
+	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
+	p2poolapi "git.gammaspectra.live/P2Pool/observer-cmd-utils/api"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"net/http"
@@ -20,10 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 )
-
-func blockId(b *sidechain.PoolBlock) types.Hash {
-	return types.HashFromBytes(b.CoinbaseExtra(sidechain.SideTemplateId))
-}
 
 var sideBlocksLock sync.RWMutex
 
@@ -79,22 +75,22 @@ func main() {
 	if *startFromHeight != 0 {
 		tip := p2api.BySideHeight(*startFromHeight)
 		if len(tip) != 0 {
-			window, uncles = p2api.WindowFromTemplateId(blockId(tip[0]))
+			window, uncles = p2api.WindowFromTemplateId(tip[0].FastSideTemplateId(p2api.Consensus()))
 		} else {
 			tip = p2api.BySideHeight(*startFromHeight + p2api.Consensus().ChainWindowSize)
 			if len(tip) != 0 {
-				window, uncles = p2api.WindowFromTemplateId(blockId(tip[0]))
+				window, uncles = p2api.WindowFromTemplateId(tip[0].FastSideTemplateId(p2api.Consensus()))
 			}
 		}
 	}
 
 	insertFromTip := func(tip *sidechain.PoolBlock) {
-		if indexDb.GetTipSideBlockByTemplateId(blockId(tip)) != nil {
+		if indexDb.GetTipSideBlockByTemplateId(tip.FastSideTemplateId(p2api.Consensus())) != nil {
 			//reached old tip
 			return
 		}
 		for cur := tip; cur != nil; cur = p2api.ByTemplateId(cur.Side.Parent) {
-			utils.Logf("CHAIN", "Inserting share %s at height %d\n", blockId(cur).String(), cur.Side.Height)
+			utils.Logf("CHAIN", "Inserting share %s at height %d\n", cur.FastSideTemplateId(p2api.Consensus()), cur.Side.Height)
 			for _, u := range cur.Side.Uncles {
 				utils.Logf("CHAIN", "Inserting uncle %s at parent height %d\n", u.String(), cur.Side.Height)
 			}
@@ -124,7 +120,7 @@ func main() {
 				window = nil
 				break
 			}
-			utils.Logf("CHAIN", "Inserting share %s at height %d\n", blockId(b).String(), b.Side.Height)
+			utils.Logf("CHAIN", "Inserting share %s at height %d\n", b.FastSideTemplateId(p2api.Consensus()), b.Side.Height)
 			for _, u := range b.Side.Uncles {
 				utils.Logf("CHAIN", "Inserting uncle %s at parent height %d\n", u.String(), b.Side.Height)
 			}
@@ -137,7 +133,7 @@ func main() {
 			}
 
 			for _, uncleId := range b.Side.Uncles {
-				if u := uncles.Get(uncleId); u != nil && u.IsProofHigherThanMainDifficulty(p2api.Consensus().GetHasher(), indexDb.GetDifficultyByHeight, indexDb.GetSeedByHeight) {
+				if u := uncles.Get(p2api.Consensus(), uncleId); u != nil && u.IsProofHigherThanMainDifficulty(p2api.Consensus().GetHasher(), indexDb.GetDifficultyByHeight, indexDb.GetSeedByHeight) {
 					backfillScan = append(backfillScan, u.MainId())
 				}
 			}
@@ -151,7 +147,7 @@ func main() {
 		if parent == nil {
 			break
 		}
-		window, uncles = p2api.WindowFromTemplateId(blockId(parent))
+		window, uncles = p2api.WindowFromTemplateId(parent.FastSideTemplateId(p2api.Consensus()))
 		if len(window) == 0 {
 			insertFromTip(parent)
 			break
@@ -306,7 +302,7 @@ func main() {
 			continue
 		}
 
-		if blockId(tip) != currentTip.TemplateId {
+		if tip.FastSideTemplateId(p2api.Consensus()) != currentTip.TemplateId {
 			if tip.Side.Height < currentTip.SideHeight {
 				//wtf
 				utils.Panicf("tip height less than ours, abort: %d < %d", tip.Side.Height, currentTip.SideHeight)

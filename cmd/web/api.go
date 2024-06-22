@@ -1,8 +1,12 @@
 package main
 
 import (
-	"git.gammaspectra.live/P2Pool/consensus/v3/utils"
+	"fmt"
+	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
+	"git.gammaspectra.live/P2Pool/consensus/v4/types"
+	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
+	fasthex "github.com/tmthrgd/go-hex"
 	"io"
 	"net/http"
 	"net/url"
@@ -128,13 +132,15 @@ func getSideBlocksFromAPI(method string, cacheTime ...int) []*index.SideBlock {
 	return getSliceFromAPI[*index.SideBlock](method, cacheTime...)
 }
 
-func getFromAPIRaw(method string, cacheTime ...int) []byte {
+func GetPoolBlockFromAPIRaw(consensus *sidechain.Consensus, id types.Hash, cacheTime ...int) *sidechain.PoolBlock {
 	cTime := 0
 	if len(cacheTime) > 0 {
 		cTime = cacheTime[0]
 	}
 
-	return cacheResult[[]byte](method, time.Second*time.Duration(cTime), func() []byte {
+	method := fmt.Sprintf("block_by_id/%s/raw", id)
+
+	return cacheResult[*sidechain.PoolBlock](method, time.Second*time.Duration(cTime), func() *sidechain.PoolBlock {
 		uri, _ := url.Parse(os.Getenv("API_URL") + method)
 		if response, err := http.DefaultClient.Do(&http.Request{
 			Method: "GET",
@@ -148,7 +154,16 @@ func getFromAPIRaw(method string, cacheTime ...int) []byte {
 				if data, err := io.ReadAll(response.Body); err != nil {
 					return nil
 				} else {
-					return data
+					b := &sidechain.PoolBlock{}
+					if b.UnmarshalBinary(consensus, &sidechain.NilDerivationCache{}, data) != nil {
+						return nil
+					}
+					// fill metadata if existent
+					if metadataBlob, err := fasthex.DecodeString(response.Header.Get("X-Metadata")); err == nil {
+						_ = b.Metadata.UnmarshalBinary(metadataBlob)
+					}
+
+					return b
 				}
 			} else {
 				return nil

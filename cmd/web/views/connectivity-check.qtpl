@@ -1,6 +1,6 @@
 {% import "git.gammaspectra.live/P2Pool/observer-cmd-utils/index" %}
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain" %}
-{% import p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/types" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain" %}
+{% import "git.gammaspectra.live/P2Pool/observer-cmd-utils/api" %}
 {% import "net/netip" %}
 
 {% code
@@ -12,7 +12,7 @@ type ConnectivityCheckPage struct {
 	YourTip *index.SideBlock
 	YourTipRaw *sidechain.PoolBlock
 	OurTip *index.SideBlock
-	Check *p2pooltypes.P2PoolConnectionCheckInformation[*sidechain.PoolBlock]
+	Check *api.P2PoolConnectionCheckInformation[*sidechain.PoolBlock]
 }
 %}
 

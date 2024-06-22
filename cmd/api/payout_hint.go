@@ -1,10 +1,10 @@
 package main
 
 import (
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero/transaction"
-	"git.gammaspectra.live/P2Pool/consensus/v3/p2pool/api"
-	"git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain"
-	"git.gammaspectra.live/P2Pool/consensus/v3/types"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/transaction"
+	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
+	"git.gammaspectra.live/P2Pool/consensus/v4/types"
+	"git.gammaspectra.live/P2Pool/observer-cmd-utils/api"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	"slices"
 )
@@ -91,7 +91,7 @@ func Outputs(p2api *api.P2PoolApi, indexDb *index.Index, tip *index.SideBlock, d
 		return index.CalculateOutputs(indexDb,
 			tip,
 			poolBlock.GetTransactionOutputType(),
-			poolBlock.Main.Coinbase.TotalReward,
+			poolBlock.Main.Coinbase.AuxiliaryData.TotalReward,
 			&poolBlock.Side.CoinbasePrivateKey,
 			poolBlock.Side.CoinbasePrivateKeySeed,
 			p2api.MainDifficultyByHeight,

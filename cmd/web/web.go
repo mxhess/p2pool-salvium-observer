@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero"
-	address2 "git.gammaspectra.live/P2Pool/consensus/v3/monero/address"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero/client"
-	"git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain"
-	types2 "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/types"
-	"git.gammaspectra.live/P2Pool/consensus/v3/types"
-	"git.gammaspectra.live/P2Pool/consensus/v3/utils"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero"
+	address2 "git.gammaspectra.live/P2Pool/consensus/v4/monero/address"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/client"
+	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
+	types2 "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/types"
+	"git.gammaspectra.live/P2Pool/consensus/v4/types"
+	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
+	"git.gammaspectra.live/P2Pool/go-json"
+	"git.gammaspectra.live/P2Pool/observer-cmd-utils/api"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"git.gammaspectra.live/P2Pool/observer/cmd/web/views"
-	"github.com/goccy/go-json"
 	"github.com/gorilla/mux"
 	"github.com/valyala/quicktemplate"
 	"io"
@@ -393,14 +394,14 @@ func main() {
 		}
 
 		if addressPort.IsValid() && !addressPort.Addr().IsUnspecified() {
-			checkInformation := getTypeFromAPI[types2.P2PoolConnectionCheckInformation[*sidechain.PoolBlock]]("consensus/connection_check/" + addressPort.String())
+			checkInformation := getTypeFromAPI[api.P2PoolConnectionCheckInformation[*sidechain.PoolBlock]]("consensus/connection_check/" + addressPort.String())
 			var rawTip *sidechain.PoolBlock
 			ourTip := getTypeFromAPI[index.SideBlock]("redirect/tip")
 			var theirTip *index.SideBlock
 			if checkInformation != nil {
 				if checkInformation.Tip != nil {
 					rawTip = checkInformation.Tip
-					theirTip = getTypeFromAPI[index.SideBlock](fmt.Sprintf("block_by_id/%s", types.HashFromBytes(rawTip.CoinbaseExtra(sidechain.SideTemplateId))))
+					theirTip = getTypeFromAPI[index.SideBlock](fmt.Sprintf("block_by_id/%s", rawTip.FastSideTemplateId(consensus)))
 				}
 			}
 			renderPage(request, writer, &views.ConnectivityCheckPage{
@@ -762,7 +763,7 @@ func main() {
 
 		var block *index.SideBlock
 		var coinbase index.MainCoinbaseOutputs
-		var rawBlock []byte
+
 		if len(identifier) == 64 {
 			block = getTypeFromAPI[index.SideBlock](fmt.Sprintf("block_by_id/%s", identifier))
 		} else {
@@ -773,18 +774,13 @@ func main() {
 			renderPage(request, writer, views.NewErrorPage(http.StatusNotFound, "Share Not Found", nil))
 			return
 		}
-		rawBlock = getFromAPIRaw(fmt.Sprintf("block_by_id/%s/raw", block.MainId))
+
+		raw := GetPoolBlockFromAPIRaw(consensus, block.MainId)
 
 		coinbase = getSliceFromAPI[index.MainCoinbaseOutput](fmt.Sprintf("block_by_id/%s/coinbase", block.MainId))
 
 		poolInfo := getTypeFromAPI[cmdutils.PoolInfoResult]("pool_info", 5)
 		lastPoolInfo.Store(poolInfo)
-
-		var raw *sidechain.PoolBlock
-		b := &sidechain.PoolBlock{}
-		if b.UnmarshalBinary(consensus, &sidechain.NilDerivationCache{}, rawBlock) == nil {
-			raw = b
-		}
 
 		payouts := getStreamFromAPI[*index.Payout](fmt.Sprintf("block_by_id/%s/payouts", block.MainId))
 

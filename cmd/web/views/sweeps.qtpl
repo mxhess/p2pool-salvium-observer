@@ -1,5 +1,5 @@
 {% import "git.gammaspectra.live/P2Pool/observer-cmd-utils/index" %}
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/monero/address" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/monero/address" %}
 
 {% code
 type SweepsPage struct {

@@ -1,7 +1,7 @@
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/monero/address" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/monero/address" %}
 {% import cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils" %}
-{% import types "git.gammaspectra.live/P2Pool/consensus/v3/types" %}
-{% import p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/types" %}
+{% import types "git.gammaspectra.live/P2Pool/consensus/v4/types" %}
+{% import p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/types" %}
 
 {% code
 type MinersPage struct {

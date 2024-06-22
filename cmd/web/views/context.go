@@ -1,8 +1,8 @@
 package views
 
 import (
-	"git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain"
-	"git.gammaspectra.live/P2Pool/consensus/v3/types"
+	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
+	"git.gammaspectra.live/P2Pool/consensus/v4/types"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 )
 

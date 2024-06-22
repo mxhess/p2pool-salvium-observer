@@ -1,4 +1,4 @@
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/monero/address" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/monero/address" %}
 
 {% func TemplateRowMiner(ctx *GlobalRequestContext, addr *address.Address, alias string) %}
 {%= TemplateRowMinerWithTag(ctx, addr, alias, "td") %}

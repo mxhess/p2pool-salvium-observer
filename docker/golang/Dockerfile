@@ -34,8 +34,8 @@ COPY . .
 ENV GOEXPERIMENT=newinliner
 
 # Use same tag as consensus protocol by default
-ARG P2POOL_CONSENSUS_PACKAGE=git.gammaspectra.live/P2Pool/consensus/v3
-ARG P2POOL_PACKAGE=git.gammaspectra.live/P2Pool/go-p2pool/v3
+ARG P2POOL_CONSENSUS_PACKAGE=git.gammaspectra.live/P2Pool/consensus/v4
+ARG P2POOL_PACKAGE=git.gammaspectra.live/P2Pool/go-p2pool/v4
 RUN go get "${P2POOL_PACKAGE}@$(go list -m "${P2POOL_CONSENSUS_PACKAGE}" | awk '{print $2}')"
 RUN go build -buildvcs=false -trimpath -v -pgo=auto -o /usr/bin/p2pool "${P2POOL_PACKAGE}"
 

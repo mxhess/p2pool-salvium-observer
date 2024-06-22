@@ -1,10 +1,10 @@
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/types" %}
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/monero/crypto" %}
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/utils" %}
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/types" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/monero/crypto" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/utils" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain" %}
 {% import "git.gammaspectra.live/P2Pool/observer-cmd-utils/index" %}
 {% import cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils" %}
-{% import p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/types" %}
+{% import p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/types" %}
 
 {% import "encoding/binary" %}
 {% import "fmt" %}

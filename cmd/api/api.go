@@ -7,19 +7,20 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero/address"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero/block"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero/client"
-	"git.gammaspectra.live/P2Pool/consensus/v3/monero/transaction"
-	p2poolapi "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/api"
-	"git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain"
-	"git.gammaspectra.live/P2Pool/consensus/v3/types"
-	"git.gammaspectra.live/P2Pool/consensus/v3/utils"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/address"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/block"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/client"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/transaction"
+	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
+	"git.gammaspectra.live/P2Pool/consensus/v4/types"
+	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
+	p2poolapi "git.gammaspectra.live/P2Pool/observer-cmd-utils/api"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/httputils"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"github.com/gorilla/mux"
+	fasthex "github.com/tmthrgd/go-hex"
 	"io"
 	"math"
 	"net/http"
@@ -319,7 +320,7 @@ func main() {
 					TransactionUnlockTime:    monero.TransactionUnlockTime,
 					MinerRewardUnlockTime:    monero.MinerRewardUnlockTime,
 					HardForkSupportedVersion: monero.HardForkSupportedVersion,
-					HardForks:                sidechain.NetworkHardFork(consensus),
+					HardForks:                monero.NetworkHardFork(consensus.NetworkType.MustAddressNetwork()),
 				},
 				Id:             mainTip.Id,
 				CoinbaseId:     mainTip.CoinbaseId,
@@ -1702,7 +1703,7 @@ func main() {
 
 			if requestKind == "/full" || requestKind == "/raw" {
 				// Process block if needed
-				if _, err := raw.PreProcessBlockWithOutputs(func(h types.Hash) *sidechain.PoolBlock {
+				if _, err := raw.PreProcessBlockWithOutputs(consensus, func(h types.Hash) *sidechain.PoolBlock {
 					b := p2api.LightByTemplateId(h)
 					if len(b) > 0 {
 						return b[0]
@@ -1726,6 +1727,8 @@ func main() {
 			}
 
 			if requestKind == "/raw" {
+				metaBlob, _ := raw.Metadata.MarshalBinary()
+				writer.Header().Set("X-Metadata", fasthex.EncodeToString(metaBlob))
 				writer.Header().Set("Content-Type", "text/plain")
 				writer.WriteHeader(http.StatusOK)
 				buf, _ := raw.MarshalBinary()
@@ -1754,7 +1757,7 @@ func main() {
 					if poolBlock != nil {
 
 						addresses := make(map[address.PackedAddress]*index.MainCoinbaseOutput, len(shares))
-						for minerId, amount := range PayoutAmountHint(shares, poolBlock.Main.Coinbase.TotalReward) {
+						for minerId, amount := range PayoutAmountHint(shares, poolBlock.Main.Coinbase.AuxiliaryData.TotalReward) {
 							miner := indexDb.GetMiner(minerId)
 							addresses[miner.Address().ToPackedAddress()] = &index.MainCoinbaseOutput{
 								Id:                types.ZeroHash,

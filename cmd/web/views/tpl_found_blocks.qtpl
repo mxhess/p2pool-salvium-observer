@@ -1,6 +1,6 @@
 {% import "git.gammaspectra.live/P2Pool/observer-cmd-utils/index" %}
 {% import cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils" %}
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/types" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/types" %}
 {% import "slices" %}
 
 {% func TemplateFoundBlocks(ctx *GlobalRequestContext, foundBlocks []*index.FoundBlock, isMiner bool) %}

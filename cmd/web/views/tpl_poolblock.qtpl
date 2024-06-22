@@ -1,6 +1,6 @@
 {% import "git.gammaspectra.live/P2Pool/observer-cmd-utils/index" %}
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/p2pool/sidechain" %}
-{% import "git.gammaspectra.live/P2Pool/consensus/v3/types" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/types" %}
 
 {% func TemplatePoolBlock(ctx *GlobalRequestContext, poolBlock *sidechain.PoolBlock, header string) %}
 {%= TemplatePoolBlockWithSideBlock(ctx, poolBlock, header, false, nil, nil, nil, 0, nil) %}
@@ -75,7 +75,7 @@
             <th>Difficulty</th>
         </tr>
         <tr>
-            <td title="{%s utc_date(poolBlock.Main.Timestamp) %}">{%s date_diff_short(poolBlock.Main.Timestamp) %}</td>
+            <td title="{%s utc_date(poolBlock.Main.Timestamp) %}{% if !poolBlock.Metadata.LocalTime.IsZero() %} / {%s poolBlock.Metadata.LocalTime.Format("02-01-2006 15:04:05 MST") %}{% endif %}">{%s date_diff_short(poolBlock.Main.Timestamp) %}{% if !poolBlock.Metadata.LocalTime.IsZero() %} / {%s date_diff_short(poolBlock.Metadata.LocalTime.Unix()) %}{% endif %}</td>
             {% if sideBlock != nil %}
             <td class="mono smaller">{%= hex(ctx, sideBlock.PowHash) %}</td>
             {%= TemplateRowMiner(ctx, sideBlock.MinerAddress, sideBlock.MinerAlias) %}
@@ -104,7 +104,7 @@
             {% else %}
             <td class="mono smaller">{%= hex(ctx, poolBlock.CoinbaseId()) %}</td>
             {% endif %}
-            <td class="small">{%s monero_to_xmr(poolBlock.Main.Coinbase.TotalReward) %} XMR</td>
+            <td class="small">{%s monero_to_xmr(poolBlock.Main.Coinbase.AuxiliaryData.TotalReward) %} XMR</td>
             <td class="mono smaller">{%= hex(ctx, poolBlock.Side.CoinbasePrivateKey) %}</td>
         </tr>
         <tr><td colspan="4">&nbsp;</td></tr>
@@ -207,7 +207,7 @@
             {% code globalOutputIndex = coinbaseOutputs[t.Index].GlobalOutputIndex %}
             {%= TemplateRowMiner(ctx, coinbaseOutputs[t.Index].MinerAddress, coinbaseOutputs[t.Index].MinerAlias) %}
             {% endif %}
-            <td class="small" title="{%f.3 (float64(t.Reward) / float64(poolBlock.Main.Coinbase.TotalReward)) * 100 %}%">{%s monero_to_xmr(t.Reward) %} XMR</td>
+            <td class="small" title="{%f.3 (float64(t.Reward) / float64(poolBlock.Main.Coinbase.AuxiliaryData.TotalReward)) * 100 %}%">{%s monero_to_xmr(t.Reward) %} XMR</td>
             {% if sideBlock != nil && sideBlock.MinedMainAtHeight %}
             <td class="small">{%dul globalOutputIndex %}</td>
             <td class="small"><a href="/proof/{%= hex(ctx, sideBlock.MainId) %}/{%dul t.Index %}" title="Prove you have a matching output for this address on this transaction">[Payout Proof #{%dul t.Index %}]</a></td>
