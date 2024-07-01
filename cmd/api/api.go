@@ -177,7 +177,7 @@ func main() {
 					Count:           1,
 					SoftwareId:      b.SoftwareId,
 					SoftwareVersion: b.SoftwareVersion,
-					SoftwareString:  fmt.Sprintf("%s %s", b.SoftwareId, b.SoftwareVersion),
+					SoftwareString:  fmt.Sprintf("%s %s", b.SoftwareId, b.SoftwareVersion.SoftwareAwareString(b.SoftwareId)),
 				})
 			}
 		}, func(slot index.SideBlockWindowSlot) {
