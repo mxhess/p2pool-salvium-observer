@@ -154,9 +154,11 @@ func main() {
 		}
 	}
 
-	var maxHeight, currentHeight uint64
-	if err = indexDb.Query("SELECT (SELECT MAX(main_height) FROM side_blocks) AS max_height, (SELECT MAX(height) FROM main_blocks) AS current_height;", func(row index.RowScanInterface) error {
-		return row.Scan(&maxHeight, &currentHeight)
+	var maxHeight uint64
+	var minHeight uint64
+	var currentHeightPtr *uint64
+	if err = indexDb.Query("SELECT (SELECT MAX(main_height) FROM side_blocks) AS max_height, (SELECT MIN(main_height) FROM side_blocks) AS min_height, (SELECT MAX(height) FROM main_blocks) AS current_height;", func(row index.RowScanInterface) error {
+		return row.Scan(&maxHeight, &minHeight, &currentHeightPtr)
 	}); err != nil {
 		utils.Panic(err)
 	}
@@ -173,6 +175,14 @@ func main() {
 			return err
 		}
 		return nil
+	}
+
+	var currentHeight uint64
+	if currentHeightPtr == nil {
+		//latest
+		currentHeight = min(minHeight, p2api.MainTip().Height-10000)
+	} else {
+		currentHeight = *currentHeightPtr
 	}
 
 	heightCount := maxHeight - 1 - currentHeight + 1
