@@ -133,11 +133,11 @@ rules:
       - name: 0
         action: check
         settings:
-          challenges: [ preload-link, header-refresh, js-refresh, http-cookie-check ]
+          challenges: [ preload-link, header-refresh, js-refresh ]
       - name: 1
         action: check
         settings:
-          challenges: [ resource-load, js-refresh, http-cookie-check ]
+          challenges: [ resource-load, js-refresh ]
 
   - name: suspicious-fetchers
     action: check
