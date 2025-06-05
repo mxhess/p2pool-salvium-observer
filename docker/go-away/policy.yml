@@ -161,12 +161,18 @@ rules:
       - 'userAgent.startsWith("Lynx/")'
 
   # Uncomment this rule out to challenge tool-like user agents on non-API
-  - name: standard-tools
+  - name: standard-robots
     action: challenge
     settings:
       challenges: [cookie]
     conditions:
       - '($is-generic-robot-ua)'
+
+  - name: standard-tools
+    action: challenge
+    settings:
+      challenges: [meta-refresh, resource-load, cookie]
+    conditions:
       - '($is-tool-ua)'
       - '!($is-generic-browser)'
 
