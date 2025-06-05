@@ -32,6 +32,12 @@ conditions:
     - 'userAgent.matches("^Mozilla/[1-4]")'
 
 
+  is-heavy-resource:
+    - 'path.startsWith("/proof/")'
+    - 'path == "/miners'
+    - 'path.startsWith("/miner/")'
+
+
 # Rules are checked sequentially in order, from top to bottom
 rules:
   - name: allow-well-known-resources
@@ -113,6 +119,26 @@ rules:
       - 'path == "/"'
     action: pass
 
+
+  - name: api
+    conditions:
+      - 'path.startsWith("/api/")'
+    action: pass
+
+  # check a sequence of challenges
+  - name: heavy-operations
+    conditions: [ '($is-heavy-resource)' ]
+    action: none
+    children:
+      - name: 0
+        action: check
+        settings:
+          challenges: [ preload-link, header-refresh, js-refresh, http-cookie-check ]
+      - name: 1
+        action: check
+        settings:
+          challenges: [ resource-load, js-refresh, http-cookie-check ]
+
   - name: suspicious-fetchers
     action: check
     settings:
@@ -120,11 +146,6 @@ rules:
     conditions:
       - 'userAgent.contains("facebookexternalhit/") || userAgent.contains("facebookcatalog/")'
 
-
-  - name: api
-    conditions:
-      - 'path.startsWith("/api/")'
-    action: pass
 
   # Allow PUT/DELETE/PATCH/POST requests in general
   - name: non-get-request
