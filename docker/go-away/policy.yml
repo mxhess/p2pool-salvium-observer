@@ -34,7 +34,7 @@ conditions:
 
   is-heavy-resource:
     - 'path.startsWith("/proof/")'
-    - 'path == "/miners'
+    - 'path == "/miners"'
     - 'path.startsWith("/miner/")'
 
 
