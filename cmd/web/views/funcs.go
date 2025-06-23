@@ -154,7 +154,7 @@ func effort_color(effort float64) string {
 	probability *= effortRangeEnd - effortRangeStart
 	probability += effortRangeStart
 
-	return effortColorGradient.At(1 - probability).Hex()
+	return effortColorGradient.At(1 - probability).HexString()
 }
 
 func monero_to_xmr(v uint64) string {
