@@ -37,14 +37,14 @@ ENV GOEXPERIMENT=newinliner
 ARG P2POOL_CONSENSUS_PACKAGE=git.gammaspectra.live/P2Pool/consensus/v4
 ARG P2POOL_PACKAGE=git.gammaspectra.live/P2Pool/go-p2pool/v4
 RUN go get "${P2POOL_PACKAGE}@$(go list -m "${P2POOL_CONSENSUS_PACKAGE}" | awk '{print $2}')"
-RUN go build -buildvcs=false -trimpath -v -pgo=auto -o /usr/bin/p2pool "${P2POOL_PACKAGE}"
+RUN go build -buildvcs=false -tags enable_randomx_library -trimpath -v -pgo=auto -o /usr/bin/p2pool "${P2POOL_PACKAGE}"
 
 
 RUN go run github.com/valyala/quicktemplate/qtc@v1.8.0
 
-RUN go build -buildvcs=false -trimpath -v -pgo=auto -o /usr/bin/api git.gammaspectra.live/P2Pool/observer/cmd/api
-RUN go build -buildvcs=false -trimpath -v -pgo=auto -o /usr/bin/daemon git.gammaspectra.live/P2Pool/observer/cmd/daemon
-RUN go build -buildvcs=false -trimpath -v -pgo=auto -o /usr/bin/web git.gammaspectra.live/P2Pool/observer/cmd/web
+RUN go build -buildvcs=false -tags enable_randomx_library -trimpath -v -pgo=auto -o /usr/bin/api git.gammaspectra.live/P2Pool/observer/cmd/api
+RUN go build -buildvcs=false -tags enable_randomx_library -trimpath -v -pgo=auto -o /usr/bin/daemon git.gammaspectra.live/P2Pool/observer/cmd/daemon
+RUN go build -buildvcs=false -tags enable_randomx_library -trimpath -v -pgo=auto -o /usr/bin/web git.gammaspectra.live/P2Pool/observer/cmd/web
 
 FROM alpine:3.22
 
