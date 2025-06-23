@@ -122,7 +122,7 @@ func toFloat64(t any) float64 {
 	return 0
 }
 
-//go:generate go run github.com/valyala/quicktemplate/qtc@v1.7.0 -dir=views
+//go:generate go run github.com/valyala/quicktemplate/qtc@v1.8.0 -dir=views
 func main() {
 
 	var responseBufferPool sync.Pool

@@ -2,7 +2,7 @@ version: "2.2"
 
 services:
   pgo-p2pool:
-    image: golang:1.22-alpine3.19
+    image: golang:1.24-alpine3.22
     restart: always
     environment:
       - GOPROXY=${GOPROXY}
@@ -22,7 +22,7 @@ services:
       -profile-name p2pool.pgo
       -endpoint http://p2pool:6060
   pgo-daemon:
-    image: golang:1.22-alpine3.19
+    image: golang:1.24-alpine3.22
     restart: always
     environment:
       - GOPROXY=${GOPROXY}
@@ -42,7 +42,7 @@ services:
       -profile-name daemon.pgo
       -endpoint http://daemon:6060
   pgo-web:
-    image: golang:1.22-alpine3.19
+    image: golang:1.24-alpine3.22
     restart: always
     environment:
       - GOPROXY=${GOPROXY}
@@ -62,7 +62,7 @@ services:
       -profile-name web.pgo
       -endpoint http://web:6060
   pgo-api:
-    image: golang:1.22-alpine3.19
+    image: golang:1.24-alpine3.22
     restart: always
     environment:
       - GOPROXY=${GOPROXY}

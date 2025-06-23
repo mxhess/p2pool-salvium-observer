@@ -80,5 +80,5 @@ $ git clone --depth 1 --branch master https://github.com/tevador/RandomX.git /tm
 
 To generate web templates, run this command:
 ```bash
-$ go run github.com/valyala/quicktemplate/qtc@v1.7.0
+$ go run github.com/valyala/quicktemplate/qtc@v1.8.0
 ```

@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine3.19 AS builder
+FROM golang:1.24-alpine3.22 AS builder
 
 
 ENV CFLAGS="-march=native -Ofast"
@@ -40,13 +40,13 @@ RUN go get "${P2POOL_PACKAGE}@$(go list -m "${P2POOL_CONSENSUS_PACKAGE}" | awk '
 RUN go build -buildvcs=false -trimpath -v -pgo=auto -o /usr/bin/p2pool "${P2POOL_PACKAGE}"
 
 
-RUN go run github.com/valyala/quicktemplate/qtc@v1.7.0
+RUN go run github.com/valyala/quicktemplate/qtc@v1.8.0
 
 RUN go build -buildvcs=false -trimpath -v -pgo=auto -o /usr/bin/api git.gammaspectra.live/P2Pool/observer/cmd/api
 RUN go build -buildvcs=false -trimpath -v -pgo=auto -o /usr/bin/daemon git.gammaspectra.live/P2Pool/observer/cmd/daemon
 RUN go build -buildvcs=false -trimpath -v -pgo=auto -o /usr/bin/web git.gammaspectra.live/P2Pool/observer/cmd/web
 
-FROM alpine:3.19
+FROM alpine:3.22
 
 RUN apk update && apk add --no-cache \
     libstdc++ libgcc
