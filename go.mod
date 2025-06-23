@@ -3,7 +3,7 @@ module git.gammaspectra.live/P2Pool/observer
 go 1.24
 
 require (
-	git.gammaspectra.live/P2Pool/consensus/v4 v4.1.3
+	git.gammaspectra.live/P2Pool/consensus/v4 v4.2.0
 	git.gammaspectra.live/P2Pool/go-json v0.99.0
 	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20240622100436-aef799b51972
 	github.com/gorilla/mux v1.8.1
