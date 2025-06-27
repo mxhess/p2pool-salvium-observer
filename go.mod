@@ -5,7 +5,7 @@ go 1.24
 require (
 	git.gammaspectra.live/P2Pool/consensus/v4 v4.2.1
 	git.gammaspectra.live/P2Pool/go-json v0.99.0
-	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250625211937-62b45036612b
+	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250627072031-3b8eda5fe048
 	github.com/gorilla/mux v1.8.1
 	github.com/mazznoer/colorgrad v0.10.0
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc
@@ -15,7 +15,7 @@ require (
 
 require (
 	git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20250621105958-76afb56a7fa0 // indirect
-	git.gammaspectra.live/P2Pool/go-randomx/v4 v4.0.1 // indirect
+	git.gammaspectra.live/P2Pool/go-randomx/v4 v4.1.0 // indirect
 	git.gammaspectra.live/P2Pool/monero-base58 v1.0.0 // indirect
 	git.gammaspectra.live/P2Pool/randomx-go-bindings v1.0.0 // indirect
 	git.gammaspectra.live/P2Pool/sha3 v0.17.0 // indirect
