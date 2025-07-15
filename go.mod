@@ -5,7 +5,7 @@ go 1.24
 require (
 	git.gammaspectra.live/P2Pool/consensus/v4 v4.4.2
 	git.gammaspectra.live/P2Pool/go-json v0.99.0
-	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250715193609-fd97da9537d2
+	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250715215742-bd4b2b727c01
 	github.com/gorilla/mux v1.8.1
 	github.com/mazznoer/colorgrad v0.10.0
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc
