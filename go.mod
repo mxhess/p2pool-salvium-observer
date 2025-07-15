@@ -3,9 +3,9 @@ module git.gammaspectra.live/P2Pool/observer
 go 1.24
 
 require (
-	git.gammaspectra.live/P2Pool/consensus/v4 v4.2.1
+	git.gammaspectra.live/P2Pool/consensus/v4 v4.4.2
 	git.gammaspectra.live/P2Pool/go-json v0.99.0
-	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250627072031-3b8eda5fe048
+	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250715193609-fd97da9537d2
 	github.com/gorilla/mux v1.8.1
 	github.com/mazznoer/colorgrad v0.10.0
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc
@@ -15,7 +15,7 @@ require (
 
 require (
 	git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20250621105958-76afb56a7fa0 // indirect
-	git.gammaspectra.live/P2Pool/go-randomx/v4 v4.1.0 // indirect
+	git.gammaspectra.live/P2Pool/go-randomx/v4 v4.2.1 // indirect
 	git.gammaspectra.live/P2Pool/monero-base58 v1.0.0 // indirect
 	git.gammaspectra.live/P2Pool/randomx-go-bindings v1.0.0 // indirect
 	git.gammaspectra.live/P2Pool/sha3 v0.17.0 // indirect
@@ -25,8 +25,8 @@ require (
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mazznoer/csscolorparser v0.1.6 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
-	golang.org/x/sync v0.15.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/crypto v0.40.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
 	lukechampine.com/uint128 v1.3.0 // indirect
 )

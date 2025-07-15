@@ -1709,7 +1709,7 @@ func main() {
 						return b[0]
 					}
 					return nil
-				}, func() (outputs transaction.Outputs, bottomHeight uint64) {
+				}, func() (outputs transaction.Outputs, bottomHeight uint64, err error) {
 					preAllocatedShares := sidechain.PreAllocateShares(consensus.ChainWindowSize * 2)
 					preAllocatedRewards := make([]uint64, 0, len(preAllocatedShares))
 					return Outputs(p2api, indexDb, sideBlock, indexDb.DerivationCache(), preAllocatedShares, preAllocatedRewards)
@@ -2105,7 +2105,7 @@ func main() {
 	})
 
 	server := &http.Server{
-		Addr:        "0.0.0.0:8080",
+		Addr:        "0.0.0.0:8082",
 		ReadTimeout: time.Second * 2,
 		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			if request.Method != "GET" && request.Method != "HEAD" && request.Method != "POST" {

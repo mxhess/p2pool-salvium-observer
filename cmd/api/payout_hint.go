@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/transaction"
 	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
 	"git.gammaspectra.live/P2Pool/consensus/v4/types"
@@ -28,16 +29,16 @@ func PayoutAmountHint(shares map[uint64]types.Difficulty, reward uint64) map[uin
 	return amountShares
 }
 
-func Outputs(p2api *api.P2PoolApi, indexDb *index.Index, tip *index.SideBlock, derivationCache sidechain.DerivationCacheInterface, preAllocatedShares sidechain.Shares, preAllocatedRewards []uint64) (outputs transaction.Outputs, bottomHeight uint64) {
+func Outputs(p2api *api.P2PoolApi, indexDb *index.Index, tip *index.SideBlock, derivationCache sidechain.DerivationCacheInterface, preAllocatedShares sidechain.Shares, preAllocatedRewards []uint64) (outputs transaction.Outputs, bottomHeight uint64, err error) {
 	if tip == nil {
-		return nil, 0
+		return nil, 0, errors.New("tip cannot be nil")
 	}
 
 	poolBlock := p2api.LightByMainId(tip.MainId)
 	if poolBlock != nil {
 		window := index.QueryIterateToSlice(indexDb.GetSideBlocksInPPLNSWindow(tip))
 		if len(window) == 0 {
-			return nil, 0
+			return nil, 0, errors.New("window is empty")
 		}
 		var hintIndex int
 
@@ -102,7 +103,7 @@ func Outputs(p2api *api.P2PoolApi, indexDb *index.Index, tip *index.SideBlock, d
 			preAllocatedRewards,
 		)
 	} else {
-		return nil, 0
+		return nil, 0, errors.New("block not found")
 	}
 }
 

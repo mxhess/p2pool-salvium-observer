@@ -154,13 +154,21 @@ func main() {
 		}
 	}
 
-	var maxHeight uint64
-	var minHeight uint64
+	var maxHeightPtr *uint64
+	var minHeightPtr *uint64
 	var currentHeightPtr *uint64
 	if err = indexDb.Query("SELECT (SELECT MAX(main_height) FROM side_blocks) AS max_height, (SELECT MIN(main_height) FROM side_blocks) AS min_height, (SELECT MAX(height) FROM main_blocks) AS current_height;", func(row index.RowScanInterface) error {
-		return row.Scan(&maxHeight, &minHeight, &currentHeightPtr)
+		return row.Scan(&maxHeightPtr, &minHeightPtr, &currentHeightPtr)
 	}); err != nil {
 		utils.Panic(err)
+	}
+
+	var minHeight, maxHeight uint64
+	if minHeightPtr != nil {
+		minHeight = *minHeightPtr
+	}
+	if maxHeightPtr != nil {
+		maxHeight = *maxHeightPtr
 	}
 
 	ctx := context.Background()
@@ -307,7 +315,7 @@ func main() {
 		tip := p2api.Tip()
 		mainTip := p2api.MainTip()
 
-		if tip == nil || mainTip == nil {
+		if tip == nil || mainTip == nil || currentTip == nil {
 			utils.Errorf("", "could not fetch tip or main tip")
 			continue
 		}
