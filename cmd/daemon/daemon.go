@@ -16,6 +16,7 @@ import (
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"net/http"
 	_ "net/http/pprof"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -213,6 +214,35 @@ func main() {
 				}
 			}
 		}
+	}
+
+	//scan blocks that we missed that have exact main id
+	if err = indexDb.Query(`
+SELECT
+	m.id AS main_id,
+	m.height AS main_height,
+	s.template_id AS template_id,
+	s.side_height AS side_height
+FROM
+	(SELECT * FROM main_blocks WHERE root_hash IS NULL AND side_template_id IS NULL) AS m
+	JOIN
+	(SELECT * FROM side_blocks) AS s ON s.main_id = m.id;
+`, func(row index.RowScanInterface) error {
+		var mainId, templateId types.Hash
+		var mainHeight, sideHeight uint64
+
+		err := row.Scan(&mainId, &mainHeight, &templateId, &sideHeight)
+		if err != nil {
+			return err
+		}
+
+		if !slices.Contains(backfillScan, mainId) {
+			backfillScan = append(backfillScan, mainId)
+		}
+
+		return nil
+	}); err != nil {
+		utils.Panic(err)
 	}
 
 	// backfill any missing headers when p2pool was down
