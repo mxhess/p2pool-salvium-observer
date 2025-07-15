@@ -2105,7 +2105,7 @@ func main() {
 	})
 
 	server := &http.Server{
-		Addr:        "0.0.0.0:8082",
+		Addr:        "0.0.0.0:8080",
 		ReadTimeout: time.Second * 2,
 		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			if request.Method != "GET" && request.Method != "HEAD" && request.Method != "POST" {
