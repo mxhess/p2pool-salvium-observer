@@ -226,7 +226,7 @@ SELECT
 FROM
 	(SELECT * FROM main_blocks WHERE root_hash IS NULL AND side_template_id IS NULL) AS m
 	JOIN
-	(SELECT * FROM side_blocks) AS s ON s.main_id = m.id;
+	(SELECT * FROM side_blocks) AS s ON s.main_id = m.id ORDER BY side_height DESC;
 `, func(row index.RowScanInterface) error {
 		var mainId, templateId types.Hash
 		var mainHeight, sideHeight uint64
