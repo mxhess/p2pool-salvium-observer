@@ -175,10 +175,24 @@ func main() {
 	ctx := context.Background()
 
 	scanHeader := func(h daemon.BlockHeader) error {
+		var chain, uncles sidechain.UniquePoolBlockSlice
+		getById := func(id types.Hash) *sidechain.PoolBlock {
+			if block := chain.Get(p2api.Consensus(), id); block != nil {
+				return block
+			} else if block = uncles.Get(p2api.Consensus(), id); block != nil {
+				return block
+			}
+			return indexDb.GetByTemplateId(id)
+		}
+
 		if err := cmdutils.FindAndInsertMainHeader(h, indexDb, func(b *sidechain.PoolBlock) {
 			p2api.InsertAlternate(b)
-		}, client.GetDefaultClient(), indexDb.GetDifficultyByHeight, indexDb.GetByTemplateId, p2api.ByMainId, p2api.LightByMainHeight, func(b *sidechain.PoolBlock) error {
-			_, err := b.PreProcessBlock(p2api.Consensus(), &sidechain.NilDerivationCache{}, sidechain.PreAllocateShares(p2api.Consensus().ChainWindowSize*2), indexDb.GetDifficultyByHeight, indexDb.GetByTemplateId)
+		}, client.GetDefaultClient(), indexDb.GetDifficultyByHeight, getById, p2api.ByMainId, p2api.LightByMainHeight, func(b *sidechain.PoolBlock) error {
+			// fill cache window!
+			if len(chain) == 0 {
+				chain, uncles = p2api.WindowFromTemplateId(b.FastSideTemplateId(p2api.Consensus()))
+			}
+			_, err := b.PreProcessBlock(p2api.Consensus(), &sidechain.NilDerivationCache{}, sidechain.PreAllocateShares(p2api.Consensus().ChainWindowSize*2), indexDb.GetDifficultyByHeight, getById)
 			return err
 		}); err != nil {
 			return err
