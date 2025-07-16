@@ -360,8 +360,16 @@ FROM
 		currentTip := indexDb.GetSideBlockTip()
 		currentMainTip := indexDb.GetMainBlockTip()
 
-		tip := p2api.Tip()
-		mainTip := p2api.MainTip()
+		var templateIdHint, mainIdHint types.Hash
+		if currentTip != nil {
+			templateIdHint = currentTip.TemplateId
+		}
+		if currentMainTip != nil {
+			mainIdHint = currentMainTip.Id
+		}
+
+		// await state change
+		tip, mainTip := p2api.SyncTip(templateIdHint, mainIdHint)
 
 		if tip == nil || mainTip == nil || currentTip == nil {
 			utils.Errorf("", "could not fetch tip or main tip")
