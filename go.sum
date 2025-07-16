@@ -1,5 +1,5 @@
-git.gammaspectra.live/P2Pool/consensus/v4 v4.4.4 h1:zZhsrbm2kSgpsPctPyiPOSxTC9bg5LzoxrjPrzZiWW0=
-git.gammaspectra.live/P2Pool/consensus/v4 v4.4.4/go.mod h1:LRBuocDGIjvsIMbG6pOSiOMzIMg3bTG2qdKPRRlR9bs=
+git.gammaspectra.live/P2Pool/consensus/v4 v4.5.0 h1:MA8rLwDXSMxRvEeurDEvGYp60QulhVG+j8w57sgBR4s=
+git.gammaspectra.live/P2Pool/consensus/v4 v4.5.0/go.mod h1:LRBuocDGIjvsIMbG6pOSiOMzIMg3bTG2qdKPRRlR9bs=
 git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20250621105958-76afb56a7fa0 h1:kYRne17BdzTjtXk7EY74zoKUziwEiyqih9c7OKstSiU=
 git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20250621105958-76afb56a7fa0/go.mod h1:FZsrMWGucMP3SZamzrd7m562geIs5zp1O/9MGoiAKH0=
 git.gammaspectra.live/P2Pool/go-json v0.99.0 h1:TbFOEWbbDLFzm1fM/2+WPUhhzSwJ501+otfrQ8jCP84=
