@@ -36,6 +36,8 @@ type ProofPage struct {
         <p><strong>Transaction Private Key:</strong> <span class="mono small">{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}</span></p>
         <p>Verify on Monero CLI: <span class="mono smaller">check_tx_proof {%= hex(p.Context(), p.Output.Id) %} {%z= encodedMinerAddress %} {%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}</span></p>
         <p>
+            <a href="{%s p.Context().GetUrl("p2pool.io") %}/explorer/prove/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on P2Pool Monero Explorer</a><br/>
+            <a href="{%s p.Context().GetUrl("xmrchain.net") %}/prove/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on xmrchain.net</a><br/>
             <a href="{%s p.Context().GetUrl("localmonero.co") %}/blocks/tx/{%= hex(p.Context(), p.Output.Id) %}?xmraddress={%z= encodedMinerAddress %}&txprvkey={%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on LocalMonero</a><br/>
             <a href="{%s p.Context().GetUrl("www.exploremonero.com") %}/receipt/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on Explore Monero</a><br/>
             <a href="{%s p.Context().GetUrl("monero.com") %}/payment/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}/">Verify on Monero.com</a><br/>
