@@ -1,5 +1,5 @@
-git.gammaspectra.live/P2Pool/consensus/v4 v4.7.2 h1:1Vivw9Rf4tJrSKG8TWOjsTChTNmB+WVZdUthPgqj9lk=
-git.gammaspectra.live/P2Pool/consensus/v4 v4.7.2/go.mod h1:LRBuocDGIjvsIMbG6pOSiOMzIMg3bTG2qdKPRRlR9bs=
+git.gammaspectra.live/P2Pool/consensus/v4 v4.7.3 h1:+0gTszRwB0jw8adu/AMWrE7zzZYZyFFguYjmoZA9yo0=
+git.gammaspectra.live/P2Pool/consensus/v4 v4.7.3/go.mod h1:LRBuocDGIjvsIMbG6pOSiOMzIMg3bTG2qdKPRRlR9bs=
 git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20250621105958-76afb56a7fa0 h1:kYRne17BdzTjtXk7EY74zoKUziwEiyqih9c7OKstSiU=
 git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20250621105958-76afb56a7fa0/go.mod h1:FZsrMWGucMP3SZamzrd7m562geIs5zp1O/9MGoiAKH0=
 git.gammaspectra.live/P2Pool/go-json v0.99.0 h1:TbFOEWbbDLFzm1fM/2+WPUhhzSwJ501+otfrQ8jCP84=
@@ -36,16 +36,10 @@ github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6Kllzaw
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/quicktemplate v1.8.0 h1:zU0tjbIqTRgKQzFY1L42zq0qR3eh4WoQQdIdqCysW5k=
 github.com/valyala/quicktemplate v1.8.0/go.mod h1:qIqW8/igXt8fdrUln5kOSb+KWMaJ4Y8QUsfd1k6L2jM=
-golang.org/x/crypto v0.40.0 h1:r4x+VvoG5Fm+eJcxMaY8CQM7Lb0l1lsmjGBQ6s8BfKM=
-golang.org/x/crypto v0.40.0/go.mod h1:Qr1vMER5WyS2dfPHAlsOj01wgLbsyWtFn/aY+5+ZdxY=
 golang.org/x/crypto v0.42.0 h1:chiH31gIWm57EkTXpwnqf8qeuMUi0yekh6mT2AvFlqI=
 golang.org/x/crypto v0.42.0/go.mod h1:4+rDnOTJhQCx2q7/j6rAN5XDw8kPjeaXEUR2eL94ix8=
-golang.org/x/sync v0.16.0 h1:ycBJEhp9p4vXvUZNszeOq0kGTPghopOL8q0fq3vstxw=
-golang.org/x/sync v0.16.0/go.mod h1:1dzgHSNfp02xaA81J2MS99Qcpr2w7fw1gpm99rleRqA=
 golang.org/x/sync v0.17.0 h1:l60nONMj9l5drqw6jlhIELNv9I0A4OFgRsG9k2oT9Ug=
 golang.org/x/sync v0.17.0/go.mod h1:9KTHXmSnoGruLpwFjVSX0lNNA75CykiMECbovNTZqGI=
-golang.org/x/sys v0.34.0 h1:H5Y5sJ2L2JRdyv7ROF1he/lPdvFsd0mJHFw2ThKHxLA=
-golang.org/x/sys v0.34.0/go.mod h1:BJP2sWEmIv4KK5OTEluFJCKSidICx8ciO85XgH3Ak8k=
 golang.org/x/sys v0.36.0 h1:KVRy2GtZBrk1cBYA7MKu5bEZFxQk4NIDV6RLVcC8o0k=
 golang.org/x/sys v0.36.0/go.mod h1:OgkHotnGiDImocRcuBABYBEXf8A9a87e/uXjp9XT3ks=
 lukechampine.com/uint128 v1.3.0 h1:cDdUVfRwDUDovz610ABgFD17nXD4/uDgVHl2sC3+sbo=

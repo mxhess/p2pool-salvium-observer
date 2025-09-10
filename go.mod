@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.2
 
 require (
-	git.gammaspectra.live/P2Pool/consensus/v4 v4.7.2
+	git.gammaspectra.live/P2Pool/consensus/v4 v4.7.3
 	git.gammaspectra.live/P2Pool/go-json v0.99.0
 	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250716171703-3df68ad0033b
 	github.com/gorilla/mux v1.8.1
