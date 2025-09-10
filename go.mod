@@ -1,9 +1,11 @@
 module git.gammaspectra.live/P2Pool/observer
 
-go 1.24
+go 1.24.0
+
+toolchain go1.24.2
 
 require (
-	git.gammaspectra.live/P2Pool/consensus/v4 v4.5.0
+	git.gammaspectra.live/P2Pool/consensus/v4 v4.7.2
 	git.gammaspectra.live/P2Pool/go-json v0.99.0
 	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250716171703-3df68ad0033b
 	github.com/gorilla/mux v1.8.1
@@ -25,8 +27,8 @@ require (
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mazznoer/csscolorparser v0.1.6 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	golang.org/x/crypto v0.40.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/crypto v0.42.0 // indirect
+	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
 	lukechampine.com/uint128 v1.3.0 // indirect
 )
