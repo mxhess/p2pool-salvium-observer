@@ -2019,7 +2019,7 @@ func main() {
 		poolInfo := lastPoolInfo.Load()
 
 		index.QueryIterate(result, func(_ int, b *index.FoundBlock) (stop bool) {
-			fillFoundBlockResult(true, b)
+			b = fillFoundBlockResult(true, b)
 			blocks = append(blocks, poolBlock{
 				Height:      b.MainBlock.Height,
 				Hash:        b.MainBlock.Id,
@@ -2029,7 +2029,7 @@ func main() {
 				Valid:       !b.Orphan(),
 				Unlocked:    !b.Orphan() && poolInfo.MainChain.Height-b.MainBlock.Height > monero.MinerRewardUnlockTime,
 				Value:       b.MainBlock.Reward,
-				Finder:      b.MinerAlias,
+				Finder:      string(b.MinerAddress.ToBase58()),
 			})
 			return false
 		})
