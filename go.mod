@@ -7,7 +7,7 @@ toolchain go1.24.2
 require (
 	git.gammaspectra.live/P2Pool/consensus/v4 v4.7.3
 	git.gammaspectra.live/P2Pool/go-json v0.99.0
-	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250912014812-edfd4ef62af1
+	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250912015317-92f43bb9cad8
 	github.com/gorilla/mux v1.8.1
 	github.com/mazznoer/colorgrad v0.10.0
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc
