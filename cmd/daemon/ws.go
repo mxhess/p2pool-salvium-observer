@@ -2,17 +2,18 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"slices"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	types2 "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/types"
 	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/api"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
-	"net/http"
 	"nhooyr.io/websocket"
-	"slices"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 type listener struct {
@@ -177,7 +178,7 @@ func setupEventHandler(p2api *api.P2PoolApi, indexDb *index.Index) {
 	}
 
 	func() {
-		foundBlocks, _ := indexDb.GetFoundBlocks("", 5)
+		foundBlocks, _ := indexDb.GetFoundBlocks("WHERE reward > 0", 5)
 		index.QueryIterate(foundBlocks, func(_ int, b *index.FoundBlock) (stop bool) {
 			foundBlockBuffer.Insert(b)
 			return false
@@ -359,7 +360,7 @@ func setupEventHandler(p2api *api.P2PoolApi, indexDb *index.Index) {
 				}
 
 				func() {
-					foundBlocks, _ := indexDb.GetFoundBlocks("", 5)
+					foundBlocks, _ := indexDb.GetFoundBlocks("WHERE reward > 0", 5)
 					index.QueryIterate(foundBlocks, func(_ int, b *index.FoundBlock) (stop bool) {
 						if foundBlockBuffer.Insert(b) {
 							//first time seen

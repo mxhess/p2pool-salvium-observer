@@ -7,6 +7,20 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
+	"math"
+	"net/http"
+	_ "net/http/pprof"
+	"net/netip"
+	"net/url"
+	"os"
+	"slices"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
+	"unicode"
+
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/address"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/block"
@@ -21,19 +35,6 @@ import (
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"github.com/gorilla/mux"
 	fasthex "github.com/tmthrgd/go-hex"
-	"io"
-	"math"
-	"net/http"
-	_ "net/http/pprof"
-	"net/netip"
-	"net/url"
-	"os"
-	"slices"
-	"strconv"
-	"strings"
-	"sync/atomic"
-	"time"
-	"unicode"
 )
 
 func main() {
@@ -1209,7 +1210,7 @@ func main() {
 		http.Redirect(writer, request, fmt.Sprintf("%s/explorer/tx/%s", cmdutils.GetSiteUrl(cmdutils.SiteKeyP2PoolIo, request.Host == torHost), txId), http.StatusFound)
 	})
 	serveMux.HandleFunc("/api/redirect/coinbase/{coinbase:[0-9]+|.?[0-9A-Za-z]+$}", func(writer http.ResponseWriter, request *http.Request) {
-		foundTarget := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1", 1, cmdutils.DecodeBinaryNumber(mux.Vars(request)["coinbase"])))
+		foundTarget := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1 AND reward > 0", 1, cmdutils.DecodeBinaryNumber(mux.Vars(request)["coinbase"])))
 		if foundTarget == nil {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusNotFound)
@@ -1272,7 +1273,7 @@ func main() {
 		height := i >> n
 		outputIndex := i & ((1 << n) - 1)
 
-		b := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1", 1, height))
+		b := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1 AND reward > 0", 1, height))
 		var tx *index.MainCoinbaseOutput
 		if b != nil {
 			tx = indexDb.GetMainCoinbaseOutputByIndex(b.MainBlock.CoinbaseId, outputIndex)
@@ -1294,7 +1295,7 @@ func main() {
 	})
 
 	serveMux.HandleFunc("/api/redirect/prove/{height:[0-9]+|.[0-9A-Za-z]+}/{miner:[0-9]+|.?[0-9A-Za-z]+}", func(writer http.ResponseWriter, request *http.Request) {
-		b := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1", 1, cmdutils.DecodeBinaryNumber(mux.Vars(request)["height"])))
+		b := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1 AND reward > 0", 1, cmdutils.DecodeBinaryNumber(mux.Vars(request)["height"])))
 		miner := indexDb.GetMiner(cmdutils.DecodeBinaryNumber(mux.Vars(request)["miner"]))
 		if b == nil || miner == nil {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -1344,7 +1345,7 @@ func main() {
 
 	//other redirects
 	serveMux.HandleFunc("/api/redirect/last_found{kind:|/full|/light|/raw|/info|/payouts|/coinbase}", func(writer http.ResponseWriter, request *http.Request) {
-		b := index.QueryFirstResult(indexDb.GetFoundBlocks("", 1))
+		b := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE reward > 0", 1))
 		if b == nil {
 			writer.WriteHeader(http.StatusNotFound)
 			return
@@ -1982,27 +1983,53 @@ func main() {
 	})
 	serveMux.HandleFunc("/api/pool/blocks", func(writer http.ResponseWriter, request *http.Request) {
 		type poolBlock struct {
-			Height      uint64     `json:"height"`
-			Hash        types.Hash `json:"hash"`
-			Difficulty  uint64     `json:"difficulty"`
-			TotalHashes uint64     `json:"totalHashes"`
 			Timestamp   uint64     `json:"ts"`
+			Hash        types.Hash `json:"hash"`
+			Difficulty  uint64     `json:"diff"`
+			TotalHashes uint64     `json:"totalHashes"`
+			Height      uint64     `json:"height"`
+			Valid       bool       `json:"valid"`
+			Unlocked    bool       `json:"unlocked"`
+			Value       uint64     `json:"value"`
+			Finder      string     `json:"finder"`
+		}
+		params := request.URL.Query()
+
+		var limit uint64 = 200
+		if params.Has("limit") {
+			if i, err := strconv.Atoi(params.Get("limit")); err == nil {
+				limit = uint64(i)
+			}
 		}
 
-		blocks := make([]poolBlock, 0, 200)
+		if limit <= 0 {
+			limit = 200
+		}
+		if limit > 1000 {
+			limit = 1000
+		}
 
-		result, err := indexDb.GetFoundBlocks("", 200)
+		blocks := make([]poolBlock, 0, limit)
+
+		result, err := indexDb.GetFoundBlocks("", limit)
 		if err != nil {
 			panic(err)
 		}
 
+		poolInfo := lastPoolInfo.Load()
+
 		index.QueryIterate(result, func(_ int, b *index.FoundBlock) (stop bool) {
+			fillFoundBlockResult(true, b)
 			blocks = append(blocks, poolBlock{
 				Height:      b.MainBlock.Height,
 				Hash:        b.MainBlock.Id,
 				Difficulty:  b.MainBlock.Difficulty,
 				TotalHashes: b.CumulativeDifficulty.Lo,
 				Timestamp:   b.MainBlock.Timestamp,
+				Valid:       !b.Orphan(),
+				Unlocked:    !b.Orphan() && poolInfo.MainChain.Height-b.MainBlock.Height > monero.MinerRewardUnlockTime,
+				Value:       b.MainBlock.Reward,
+				Finder:      b.MinerAlias,
 			})
 			return false
 		})
