@@ -25,6 +25,7 @@ import (
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/address"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/block"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/client"
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/crypto"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/transaction"
 	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
 	"git.gammaspectra.live/P2Pool/consensus/v4/types"
@@ -1983,15 +1984,17 @@ func main() {
 	})
 	serveMux.HandleFunc("/api/pool/blocks", func(writer http.ResponseWriter, request *http.Request) {
 		type poolBlock struct {
-			Timestamp   uint64     `json:"ts"`
-			Hash        types.Hash `json:"hash"`
-			Difficulty  uint64     `json:"diff"`
-			TotalHashes uint64     `json:"totalHashes"`
-			Height      uint64     `json:"height"`
-			Valid       bool       `json:"valid"`
-			Unlocked    bool       `json:"unlocked"`
-			Value       uint64     `json:"value"`
-			Finder      string     `json:"finder"`
+			Timestamp   uint64                 `json:"ts"`
+			Hash        types.Hash             `json:"hash"`
+			Difficulty  uint64                 `json:"diff"`
+			TotalHashes uint64                 `json:"totalHashes"`
+			Height      uint64                 `json:"height"`
+			Valid       bool                   `json:"valid"`
+			Unlocked    bool                   `json:"unlocked"`
+			PoolType    string                 `json:"pool_type"`
+			Value       uint64                 `json:"value"`
+			Finder      string                 `json:"finder"`
+			TxKey       crypto.PrivateKeyBytes `json:"tx_key,omitempty"`
 		}
 		params := request.URL.Query()
 
@@ -2028,8 +2031,10 @@ func main() {
 				Timestamp:   b.MainBlock.Timestamp,
 				Valid:       !b.Orphan(),
 				Unlocked:    !b.Orphan() && poolInfo.MainChain.Height-b.MainBlock.Height > monero.MinerRewardUnlockTime,
+				PoolType:    "pplns",
 				Value:       b.MainBlock.Reward,
 				Finder:      string(b.MinerAddress.ToBase58()),
+				TxKey:       b.MainBlock.CoinbasePrivateKey,
 			})
 			return false
 		})
