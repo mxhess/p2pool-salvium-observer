@@ -22,7 +22,7 @@
     {% for i, b := range foundBlocks %}
     <tr>
         {% if b.Orphan() %}
-        <th title="{%= hex(ctx, b.MainBlock.Id) %}">{%dul b.MainBlock.Height %}*</th>
+        <th title="{%= hex(ctx, b.MainBlock.Id) %} is an orphan at Monero height {%dul b.MainBlock.Height %}">{%dul b.MainBlock.Height %}*</th>
         {% else %}
         <th title="{%= hex(ctx, b.MainBlock.Id) %}"><a href="/b/{%s benc(b.MainBlock.Height) %}">{%dul b.MainBlock.Height %}</a></th>
         {% endif %}
@@ -51,10 +51,14 @@
             {%= TemplateRowMiner(ctx, b.MinerAddress, b.MinerAlias) %}
         {% endif %}
         <td>{%dul uint64(b.TransactionCount) %}</td>
+        {% if b.Orphan() %}
+        <th class="small">-</th>
+        {% else %}
         <th class="small">{%s monero_to_xmr(b.MainBlock.Reward) %} XMR</th>
+        {% endif %}
         <td>{%dul uint64(b.WindowOutputs) %}</td>
         {% if b.Orphan() %}
-        <td style="font-weight:bolder; color: red;">ORPHANED</t>
+        <td style="color: red;">ORPHANED</t>
         <td class="mono smaller">-</td>
         {% else %}
         <td title="{%= hex(ctx, b.MainBlock.CoinbaseId) %}" class="mono small"><a href="/t/{%= henc(b.MainBlock.CoinbaseId) %}">{%= shorten(ctx, b.MainBlock.CoinbaseId, 10) %}</a></td>
