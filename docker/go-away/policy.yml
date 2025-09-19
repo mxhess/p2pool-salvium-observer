@@ -117,6 +117,8 @@ rules:
   - name: homesite
     conditions:
       - 'path == "/"'
+      - 'path == "/calculate-share-time"'
+      - 'path.startsWith("/share/")'
     action: pass
 
 
