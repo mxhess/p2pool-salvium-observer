@@ -4,6 +4,20 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
+	"math"
+	"net/http"
+	_ "net/http/pprof"
+	"net/netip"
+	"net/url"
+	"os"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero"
 	address2 "git.gammaspectra.live/P2Pool/consensus/v4/monero/address"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/client"
@@ -18,19 +32,6 @@ import (
 	"git.gammaspectra.live/P2Pool/observer/cmd/web/views"
 	"github.com/gorilla/mux"
 	"github.com/valyala/quicktemplate"
-	"io"
-	"math"
-	"net/http"
-	_ "net/http/pprof"
-	"net/netip"
-	"net/url"
-	"os"
-	"slices"
-	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 func toUint64(t any) uint64 {
@@ -852,6 +853,9 @@ func main() {
 			refresh = 300
 		}
 		address := mux.Vars(request)["miner"]
+
+		minerAddress := address2.FromBase58(address)
+
 		miner := getTypeFromAPI[cmdutils.MinerInfoResult](fmt.Sprintf("miner_info/%s?shareEstimates", address))
 		if miner == nil || miner.Address == nil {
 			if addr := address2.FromBase58(address); addr != nil {
@@ -865,6 +869,10 @@ func main() {
 				renderPage(request, writer, views.NewErrorPage(http.StatusNotFound, "Invalid Address", nil))
 				return
 			}
+		}
+
+		if minerAddress == nil {
+			minerAddress = miner.Address
 		}
 
 		poolInfo := getTypeFromAPI[cmdutils.PoolInfoResult]("pool_info", 5)
@@ -1005,6 +1013,7 @@ func main() {
 			},
 			Weight:             longDiff.Lo,
 			WindowWeight:       windowDiff.Lo,
+			MinerAddress:       minerAddress,
 			Miner:              miner,
 			LastPoolBlock:      raw,
 			LastShares:         lastShares,
@@ -1215,7 +1224,7 @@ func main() {
 		}, poolInfo)
 	})
 
-	serveMux.HandleFunc("/payouts/{miner:[0-9]+|4[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+}", func(writer http.ResponseWriter, request *http.Request) {
+	serveMux.HandleFunc("/payouts/{miner:[0-9]+|[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+}", func(writer http.ResponseWriter, request *http.Request) {
 		params := request.URL.Query()
 		refresh := 0
 		if params.Has("refresh") {

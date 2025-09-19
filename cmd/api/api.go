@@ -366,7 +366,7 @@ func main() {
 		params := request.URL.Query()
 
 		var miner *index.Miner
-		if len(minerId) > 10 && minerId[0] == '4' {
+		if len(minerId) > 10 && (minerId[0] == '4' || minerId[0] == '8') {
 			miner = indexDb.GetMinerByStringAddress(minerId)
 		}
 
@@ -640,7 +640,7 @@ func main() {
 
 	})
 
-	serveMux.HandleFunc("/api/miner_webhooks/{miner:4[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+}", func(writer http.ResponseWriter, request *http.Request) {
+	serveMux.HandleFunc("/api/miner_webhooks/{miner:[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+}", func(writer http.ResponseWriter, request *http.Request) {
 		minerId := mux.Vars(request)["miner"]
 		miner := indexDb.GetMinerByStringAddress(minerId)
 
@@ -681,7 +681,7 @@ func main() {
 		})
 	})
 
-	serveMux.HandleFunc("/api/miner_signed_action/{miner:4[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+}", func(writer http.ResponseWriter, request *http.Request) {
+	serveMux.HandleFunc("/api/miner_signed_action/{miner:[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+}", func(writer http.ResponseWriter, request *http.Request) {
 		minerId := mux.Vars(request)["miner"]
 		miner := indexDb.GetMinerByStringAddress(minerId)
 
@@ -983,10 +983,10 @@ func main() {
 		})
 	})
 
-	serveMux.HandleFunc("/api/side_blocks_in_window/{miner:[0-9]+|4[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$}", func(writer http.ResponseWriter, request *http.Request) {
+	serveMux.HandleFunc("/api/side_blocks_in_window/{miner:[0-9]+|[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$}", func(writer http.ResponseWriter, request *http.Request) {
 		minerId := mux.Vars(request)["miner"]
 		var miner *index.Miner
-		if len(minerId) > 10 && minerId[0] == '4' {
+		if len(minerId) > 10 && (minerId[0] == '4' || minerId[0] == '8') {
 			miner = indexDb.GetMinerByStringAddress(minerId)
 		}
 
@@ -1081,10 +1081,10 @@ func main() {
 		_ = httputils.StreamJsonIterator(request, writer, result.Next)
 	})
 
-	serveMux.HandleFunc("/api/sweeps/{miner:[0-9]+|4[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$}", func(writer http.ResponseWriter, request *http.Request) {
+	serveMux.HandleFunc("/api/sweeps/{miner:[0-9]+|[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$}", func(writer http.ResponseWriter, request *http.Request) {
 		minerId := mux.Vars(request)["miner"]
 		var miner *index.Miner
-		if len(minerId) > 10 && minerId[0] == '4' {
+		if len(minerId) > 10 && (minerId[0] == '4' || minerId[0] == '8') {
 			miner = indexDb.GetMinerByStringAddress(minerId)
 		}
 
@@ -1127,10 +1127,10 @@ func main() {
 		_ = httputils.StreamJsonIterator(request, writer, result.Next)
 	})
 
-	serveMux.HandleFunc("/api/payouts/{miner:[0-9]+|4[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$}", func(writer http.ResponseWriter, request *http.Request) {
+	serveMux.HandleFunc("/api/payouts/{miner:[0-9]+|[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$}", func(writer http.ResponseWriter, request *http.Request) {
 		minerId := mux.Vars(request)["miner"]
 		var miner *index.Miner
-		if len(minerId) > 10 && minerId[0] == '4' {
+		if len(minerId) > 10 && (minerId[0] == '4' || minerId[0] == '8') {
 			miner = indexDb.GetMinerByStringAddress(minerId)
 		}
 
@@ -1374,7 +1374,7 @@ func main() {
 			id := params.Get("miner")
 			var miner *index.Miner
 
-			if len(id) > 10 && id[0] == '4' {
+			if len(id) > 10 && (id[0] == '4' || id[0] == '8') {
 				miner = indexDb.GetMinerByStringAddress(id)
 			}
 
@@ -1466,7 +1466,7 @@ func main() {
 		if params.Has("miner") {
 			id := params.Get("miner")
 
-			if len(id) > 10 && id[0] == '4' {
+			if len(id) > 10 && (id[0] == '4' || id[0] == '8') {
 				miner = indexDb.GetMinerByStringAddress(id)
 			}
 
@@ -1538,7 +1538,7 @@ func main() {
 			id := params.Get("miner")
 			var miner *index.Miner
 
-			if len(id) > 10 && id[0] == '4' {
+			if len(id) > 10 && (id[0] == '4' || id[0] == '8') {
 				miner = indexDb.GetMinerByStringAddress(id)
 			}
 
