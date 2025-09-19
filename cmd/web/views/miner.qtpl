@@ -3,7 +3,6 @@
 
 {% import p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/types" %}
 {% import cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils" %}
-{% import cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils" %}
 {% import "git.gammaspectra.live/P2Pool/consensus/v4/monero/address" %}
 
 {% code
@@ -138,7 +137,7 @@ type MinerPage struct {
     {% endif %}
 
     <p><strong>Payout Address:</strong> <span class="mono small">{%z= p.MinerAddress.ToBase58() %}</span></p>
-    {% if p.MinerAddress.ToBase58() != p.Miner.Address.ToBase58() %}
+    {% if string(p.MinerAddress.ToBase58()) != string(p.Miner.Address.ToBase58()) %}
     <p><strong>P2Pool Address:</strong> <span class="mono small"><a href="/miner/{%z= p.Miner.Address.ToBase58() %}">{%z= p.Miner.Address.ToBase58() %}</a></span></p>
     {% endif %}
 
