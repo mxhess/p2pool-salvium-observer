@@ -9,6 +9,7 @@ type ProofPage struct {
 	Output *index.MainCoinbaseOutput
 	Block *index.SideBlock
 	Raw *sidechain.PoolBlock
+	OutProof string
 }
 %}
 
@@ -46,8 +47,7 @@ type ProofPage struct {
 
 
     <div style="border: #aaaaaa 1px dashed">
-        <p><strong>OutProofV2:</strong> <span class="mono smaller">{%= hex(p.Context(), address.GetTxProofV2(p.Output.MinerAddress, p.Output.Id, &p.Raw.Side.CoinbasePrivateKey, "")) %}</span></p>
-        <p><strong>OutProofV1:</strong> <span class="mono smaller">{%= hex(p.Context(), address.GetTxProofV1(p.Output.MinerAddress, p.Output.Id, &p.Raw.Side.CoinbasePrivateKey, "")) %}</span></p>
+        <p><strong>OutProofV2:</strong> <span class="mono smaller">{%s p.OutProof %}</span></p>
         <p>Verify on Monero GUI <span class="small">(Advanced -> Prove/check -> Check Transaction)</span></p>
     </div>
 </div>

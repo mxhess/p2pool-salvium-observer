@@ -32,7 +32,7 @@ type PayoutsPage struct {
 
     {% code var total uint64 %}
 
-    {%= TemplatePayouts(p.Context(), p.Payouts, &total) %}
+    {%= TemplatePayouts(p.Context(), p.Miner, p.Payouts, &total) %}
 
     <p><strong>Estimated total:</strong> {%s monero_to_xmr(total) %} XMR</p>
 </div>

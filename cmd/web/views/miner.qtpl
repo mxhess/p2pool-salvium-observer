@@ -229,7 +229,7 @@ type MinerPage struct {
 
 <div style="text-align: center">
     <h2>Most recent payouts</h2>
-    {%= TemplatePayoutsSlice(p.Context(), p.LastPayouts) %}
+    {%= TemplatePayoutsSlice(p.Context(), p.MinerAddress, p.LastPayouts) %}
     <div class="center"><a href="/payouts/{%z= p.MinerAddress.ToBase58() %}">[show all historical payouts]</a></div>
 </div>
 

@@ -871,7 +871,7 @@ func main() {
 			}
 		}
 
-		if minerAddress == nil {
+		if minerAddress == nil || miner.Address.SpendPub != minerAddress.SpendPub {
 			minerAddress = miner.Address
 		}
 
@@ -1217,10 +1217,27 @@ func main() {
 		poolInfo := getTypeFromAPI[cmdutils.PoolInfoResult]("pool_info", 5)
 		lastPoolInfo.Store(poolInfo)
 
+		payout := payouts[requestIndex]
+
+		proof := ""
+
+		if addrStr := request.URL.Query().Get("address"); addrStr != "" {
+			addr := address2.FromBase58(addrStr)
+			if addr != nil && addr.IsSubaddress() && addr.SpendPub == payout.MinerAddress.SpendPub {
+				payout.MinerAddress = addr
+				proof = GetOutProofV2_SpecialPayout(addr, payout.Id, &raw.Side.CoinbasePrivateKey, "")
+			}
+		}
+
+		if proof == "" {
+			proof = address2.GetOutProofV2(payout.MinerAddress, payout.Id, &raw.Side.CoinbasePrivateKey, "")
+		}
+
 		renderPage(request, writer, &views.ProofPage{
-			Output: &payouts[requestIndex],
-			Block:  block,
-			Raw:    raw,
+			Output:   &payout,
+			Block:    block,
+			Raw:      raw,
+			OutProof: proof,
 		}, poolInfo)
 	})
 
@@ -1236,11 +1253,17 @@ func main() {
 		if params.Has("address") {
 			address = params.Get("address")
 		}
+
+		minerAddress := address2.FromBase58(address)
+
 		miner := getTypeFromAPI[cmdutils.MinerInfoResult](fmt.Sprintf("miner_info/%s?noShares", address))
 
 		if miner == nil || miner.Address == nil {
 			renderPage(request, writer, views.NewErrorPage(http.StatusNotFound, "Address Not Found", "You need to have mined at least one share in the past. Come back later :)"))
 			return
+		}
+		if minerAddress == nil || miner.Address.SpendPub != minerAddress.SpendPub {
+			minerAddress = miner.Address
 		}
 
 		payouts := getStreamFromAPI[*index.Payout](fmt.Sprintf("payouts/%d?search_limit=0", miner.Id))

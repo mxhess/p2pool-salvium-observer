@@ -8,7 +8,7 @@ require (
 	git.gammaspectra.live/P2Pool/consensus/v4 v4.8.6
 	git.gammaspectra.live/P2Pool/go-json v0.99.0
 	git.gammaspectra.live/P2Pool/monero-base58 v1.0.0
-	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250919122002-873e01e8b296
+	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250919122609-26e292402953
 	github.com/gorilla/mux v1.8.1
 	github.com/mazznoer/colorgrad v0.10.0
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc

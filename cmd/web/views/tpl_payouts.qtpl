@@ -1,6 +1,7 @@
 {% import "git.gammaspectra.live/P2Pool/observer-cmd-utils/index" %}
+{% import "git.gammaspectra.live/P2Pool/consensus/v4/monero/address" %}
 
-{% func TemplatePayouts(ctx *GlobalRequestContext, payouts <-chan *index.Payout, total *uint64) %}
+{% func TemplatePayouts(ctx *GlobalRequestContext, address *Address.Address, payouts <-chan *index.Payout, total *uint64) %}
 <table class="center datatable" style="max-width: calc(8em + 8em + 8em + 10em + 10em + 7em + 12em + 10em)">
     <tr>
         <th style="width: 8em;">Monero Height</th>
@@ -20,7 +21,7 @@
         <td>{%s monero_to_xmr(p.Reward) %} XMR</td>
         <td>{%dul p.GlobalOutputIndex %}</td>
         <td title="{%= hex(ctx, p.CoinbaseId) %}" class="mono small"><a href="/t/{%= henc(p.CoinbaseId) %}">{%= shorten(ctx, p.CoinbaseId, 10) %}</a></td>
-        <td><a href="/proof/{%= hex(ctx, p.MainId) %}/{%dul uint64(p.Index) %}" title="Prove you have a matching output for your address on this transaction">[Payout Proof #{%dul uint64(p.Index) %}]</a></td>
+        <td><a href="/proof/{%= hex(ctx, p.MainId) %}/{%dul uint64(p.Index) %}{% if address.IsSubaddress() %}?address={%z= address.ToBase58() %}{% endif %}" title="Prove you have a matching output for your address on this transaction">[Payout Proof #{%dul uint64(p.Index) %}]</a></td>
     </tr>
     {% endfor %}
 </table>
