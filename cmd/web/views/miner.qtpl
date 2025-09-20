@@ -3,7 +3,6 @@
 
 {% import p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/types" %}
 {% import cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils" %}
-{% import "git.gammaspectra.live/P2Pool/consensus/v4/monero/address" %}
 
 {% code
 type MinerPage struct {
@@ -24,7 +23,6 @@ type MinerPage struct {
 	ExpectedRewardPerDay uint64
 	WindowWeight uint64
 	Weight uint64
-	MinerAddress *address.Address
 	Miner *cmdutils.MinerInfoResult
 	LastPoolBlock *sidechain.PoolBlock
 	LastShares []*index.SideBlock
@@ -41,15 +39,19 @@ type MinerPage struct {
 %}
 
 {% func (p *MinerPage) Title() %}
-{%= p.BasePage.Title() %} - Miner {%z= p.MinerAddress.ToBase58() %}
+{%= p.BasePage.Title() %} - Miner {%z= get_payout(p.Miner.Address, p.Miner.PayoutAddress).ToBase58() %}
 {% endfunc %}
 
 {% func (p *MinerPage) Content() %}
+
+{% code var minerAddress = get_payout(p.Miner.Address, p.Miner.PayoutAddress) %}
+{% code var minerAddressStr = minerAddress.ToBase58() %}
+
 <div style="text-align: center; font-weight: bold;">
     {% if p.Refresh > 0 %}
-    <a href="/miner/{%z= p.MinerAddress.ToBase58() %}">Autorefresh is ON ({%d p.Refresh %} s)</a>
+    <a href="/miner/{%z= minerAddressStr %}">Autorefresh is ON ({%d p.Refresh %} s)</a>
     {% else %}
-    <a href="/miner/{%z= p.MinerAddress.ToBase58() %}?refresh">Autorefresh is OFF</a>
+    <a href="/miner/{%z= minerAddressStr %}?refresh">Autorefresh is OFF</a>
     {% endif %}
 </div>
 
@@ -104,7 +106,7 @@ type MinerPage struct {
         <p>A new version of <a href="https://github.com/SChernykh/p2pool/releases/tag/v3.3">P2Pool (v3.0+)</a> has been released with several improvements, which requires a consensus change.</p>
         <p>P2Pool (not Monero!) has hardforked to new consensus rules on <strong>March 18th, 2023 at 21:00 UTC</strong>. All versions before P2Pool v3.0 are incompatible. P2Pool v3.3+ is recommended.</p>
         <p>If you keep using previous versions, you will keep mining as usual, but become almost a solo miner, as incompatible clients will mine on their own.</p>
-        <p>{% if p.Context().NetServiceAddress == "p2pool.observer" %}After the fork, you can check on <a href="{%s p.Context().GetUrl("old.p2pool.observer") %}/miner/{%z= p.MinerAddress.ToBase58() %}">OLD.P2Pool.Observer</a>.{% elseif p.Context().NetServiceAddress == "mini.p2pool.observer" %}After the fork, you can check on <a href="https://{%s p.Context().GetUrl("old-mini.p2pool.observer") %}/miner/{%z= p.Miner.Address.ToBase58() %}">OLD-MINI.P2Pool.Observer</a>.{% else %}Please check on an observer tracking the old chain.{% endif %}</p>
+        <p>{% if p.Context().NetServiceAddress == "p2pool.observer" %}After the fork, you can check on <a href="{%s p.Context().GetUrl("old.p2pool.observer") %}/miner/{%z= minerAddressStr %}">OLD.P2Pool.Observer</a>.{% elseif p.Context().NetServiceAddress == "mini.p2pool.observer" %}After the fork, you can check on <a href="https://{%s p.Context().GetUrl("old-mini.p2pool.observer") %}/miner/{%z= p.Miner.Address.ToBase58() %}">OLD-MINI.P2Pool.Observer</a>.{% else %}Please check on an observer tracking the old chain.{% endif %}</p>
         <p>After upgrading to a supported P2Pool version and mining a share, this message will be dismissed.</p>
         <br/>
     </div>
@@ -117,7 +119,7 @@ type MinerPage struct {
         <p>A new version of <a href="https://github.com/SChernykh/p2pool/releases/tag/v4.0">P2Pool (v4.0+)</a> has been released with merge mining support, which requires a consensus change.</p>
         <p>P2Pool (not Monero!) will hardfork to new consensus rules on <strong>October 12th, 2024 at 20:00 UTC</strong>. All versions before P2Pool v4.0 are incompatible. P2Pool v4.0+ is recommended.</p>
         <p>If you keep using previous versions, you will keep mining as usual, but become almost a solo miner, as incompatible clients will mine on their own.</p>
-        <p>{% if p.Context().NetServiceAddress == "p2pool.observer" %}After the fork, you can check on <a href="{%s p.Context().GetUrl("old.p2pool.observer") %}/miner/{%z= p.MinerAddress.ToBase58() %}">OLD.P2Pool.Observer</a>.{% elseif p.Context().NetServiceAddress == "mini.p2pool.observer" %}After the fork, you can check on <a href="https://{%s p.Context().GetUrl("old-mini.p2pool.observer") %}/miner/{%z= p.MinerAddress.ToBase58() %}">OLD-MINI.P2Pool.Observer</a>.{% else %}Please check on an observer tracking the old chain.{% endif %}</p>
+        <p>{% if p.Context().NetServiceAddress == "p2pool.observer" %}After the fork, you can check on <a href="{%s p.Context().GetUrl("old.p2pool.observer") %}/miner/{%z= minerAddressStr %}">OLD.P2Pool.Observer</a>.{% elseif p.Context().NetServiceAddress == "mini.p2pool.observer" %}After the fork, you can check on <a href="https://{%s p.Context().GetUrl("old-mini.p2pool.observer") %}/miner/{%z= minerAddressStr %}">OLD-MINI.P2Pool.Observer</a>.{% else %}Please check on an observer tracking the old chain.{% endif %}</p>
         <p>After upgrading to a supported P2Pool version and mining a share, this message will be dismissed.</p>
         <br/>
     </div>
@@ -136,9 +138,22 @@ type MinerPage struct {
     <hr/>
     {% endif %}
 
-    <p><strong>Payout Address:</strong> <span class="mono small">{%z= p.MinerAddress.ToBase58() %}</span></p>
-    {% if string(p.MinerAddress.ToBase58()) != string(p.Miner.Address.ToBase58()) %}
-    <p><strong>P2Pool Address:</strong> <span class="mono small"><a href="/miner/{%z= p.Miner.Address.ToBase58() %}">{%z= p.Miner.Address.ToBase58() %}</a></span></p>
+    {% if string(minerAddressStr) != string(p.Miner.Address.ToBase58()) %}
+    <p>
+        <strong>Payout Address:</strong> <span class="mono small">{%z= minerAddressStr %}</span><br/>
+        <small>
+            This subaddress is where you will receive P2Pool payouts.
+        </small>
+    </p>
+    <p class="small">
+        <strong>P2Pool Address:</strong> <span class="mono small"><a href="/miner/{%z= p.Miner.Address.ToBase58() %}">{%z= p.Miner.Address.ToBase58() %}</a></span><br/>
+        <small>
+            This is the derivated main address to be able to get P2Pool payouts on a Monero Subaddress.<br/>
+            Statistics are tracked via this address. P2Pool will see this address, but payouts will be sent on your subaddress.
+        </small>
+    </p>
+    {% else %}
+    <p><strong>Payout Address:</strong> <span class="mono small">{%z= minerAddressStr %}</span></p>
     {% endif %}
 
     {% if p.Miner.Alias != "" %}
@@ -146,7 +161,9 @@ type MinerPage struct {
     <p><small>Miner Alias is user content and not verified. This value should only be used for vanity purposes.</small></p>
     {% endif %}
 
-    <p><small><a href="/miner-options/{%z= p.MinerAddress.ToBase58() %}#mineralias">[Change Miner Alias]</a> :: <a href="/miner-options/{%z= p.MinerAddress.ToBase58() %}#webhooks">[Configure WebHook notifications]</a></small></p>
+    {% if !minerAddress.IsSubaddress() %}
+    <p><small><a href="/miner-options/{%z= minerAddressStr %}#mineralias">[Change Miner Alias]</a> :: <a href="/miner-options/{%z= minerAddressStr %}#webhooks">[Configure WebHook notifications]</a></small></p>
+    {% endif %}
 
     <table class="center" style="max-width: calc(15em + 15em + 15em + 15em + 15em)">
         <tr>
@@ -229,8 +246,8 @@ type MinerPage struct {
 
 <div style="text-align: center">
     <h2>Most recent payouts</h2>
-    {%= TemplatePayoutsSlice(p.Context(), p.MinerAddress, p.LastPayouts) %}
-    <div class="center"><a href="/payouts/{%z= p.MinerAddress.ToBase58() %}">[show all historical payouts]</a></div>
+    {%= TemplatePayoutsSlice(p.Context(), minerAddress, p.LastPayouts) %}
+    <div class="center"><a href="/payouts/{%z= minerAddressStr %}">[show all historical payouts]</a></div>
 </div>
 
 <hr/>
@@ -258,7 +275,7 @@ type MinerPage struct {
 <div style="text-align: center">
     <h2>Most recent Monero blocks found</h2>
     {%= TemplateFoundBlocks(p.Context(), p.LastFound, true) %}
-    <div class="center"><a href="/blocks?miner={%z= p.MinerAddress.ToBase58() %}">[show more found blocks]</a></div>
+    <div class="center"><a href="/blocks?miner={%z= minerAddressStr %}">[show more found blocks]</a></div>
 </div>
 
 <hr/>
@@ -266,7 +283,7 @@ type MinerPage struct {
 <div style="text-align: center">
     <h2>Most recent likely sweeps</h2>
     {%= TemplateSweeps(p.Context(), p.LastSweeps, true) %}
-    <div class="center"><a href="/sweeps?miner={%z= p.MinerAddress.ToBase58() %}">[show more likely sweeps]</a></div>
+    <div class="center"><a href="/sweeps?miner={%z= minerAddressStr %}">[show more likely sweeps]</a></div>
 </div>
 
 
@@ -275,7 +292,7 @@ type MinerPage struct {
 <hr/>
 
 <div style="text-align: center">
-    <form action="/miner/{%z= p.MinerAddress.ToBase58() %}" method="get">
+    <form action="/miner/{%z= minerAddressStr %}" method="get">
         <h3>Effort Calculation</h3>
         <p>Local hashrate of each P2Pool miner is not known by the network. A guess is calculated based on daily estimation. If you provide a value here, it will be more accurate for effort calculation.</p>
         <p>This data will not be saved.</p>

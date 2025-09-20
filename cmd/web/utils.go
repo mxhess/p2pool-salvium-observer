@@ -9,6 +9,13 @@ import (
 	base58 "git.gammaspectra.live/P2Pool/monero-base58"
 )
 
+func GetPayout(main, sub *address.Address) *address.Address {
+	if sub != nil {
+		return sub
+	}
+	return main
+}
+
 func GetOutProofV2_SpecialPayout(a address.Interface, txId types.Hash, txKey crypto.PrivateKey, message string) string {
 	prefixHash := crypto.Keccak256(txId[:], []byte(message))
 

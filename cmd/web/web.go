@@ -615,7 +615,7 @@ func main() {
 			renderPage(request, writer, &views.SweepsPage{
 				Refresh: refresh,
 				Sweeps:  getStreamFromAPI[*index.MainLikelySweepTransaction](fmt.Sprintf("sweeps/%d?limit=100", miner.Id)),
-				Miner:   miner.Address,
+				Miner:   GetPayout(miner.Address, miner.PayoutAddress),
 			}, poolInfo)
 		} else {
 			renderPage(request, writer, &views.SweepsPage{
@@ -650,7 +650,7 @@ func main() {
 			renderPage(request, writer, &views.BlocksPage{
 				Refresh:     refresh,
 				FoundBlocks: getSliceFromAPI[*index.FoundBlock](fmt.Sprintf("found_blocks?&limit=100&miner=%d", miner.Id)),
-				Miner:       miner.Address,
+				Miner:       GetPayout(miner.Address, miner.PayoutAddress),
 			}, poolInfo)
 		} else {
 			renderPage(request, writer, &views.BlocksPage{
@@ -699,6 +699,7 @@ func main() {
 			if _, ok := miners[miner]; !ok {
 				miners[miner] = &views.MinersPageMinerEntry{
 					Address:         share.MinerAddress,
+					PayoutAddress:   share.MinerPayoutAddress,
 					Alias:           share.MinerAlias,
 					SoftwareId:      share.SoftwareId,
 					SoftwareVersion: share.SoftwareVersion,
@@ -854,7 +855,7 @@ func main() {
 		}
 		address := mux.Vars(request)["miner"]
 
-		minerAddress := address2.FromBase58(address)
+		minerPayoutAddress := address2.FromBase58(address)
 
 		miner := getTypeFromAPI[cmdutils.MinerInfoResult](fmt.Sprintf("miner_info/%s?shareEstimates", address))
 		if miner == nil || miner.Address == nil {
@@ -871,8 +872,8 @@ func main() {
 			}
 		}
 
-		if minerAddress == nil || miner.Address.SpendPub != minerAddress.SpendPub {
-			minerAddress = miner.Address
+		if minerPayoutAddress.IsSubaddress() && miner.PayoutAddress == nil && minerPayoutAddress.SpendPub == miner.Address.SpendPub {
+			miner.PayoutAddress = minerPayoutAddress
 		}
 
 		poolInfo := getTypeFromAPI[cmdutils.PoolInfoResult]("pool_info", 5)
@@ -1013,7 +1014,6 @@ func main() {
 			},
 			Weight:             longDiff.Lo,
 			WindowWeight:       windowDiff.Lo,
-			MinerAddress:       minerAddress,
 			Miner:              miner,
 			LastPoolBlock:      raw,
 			LastShares:         lastShares,
@@ -1108,7 +1108,7 @@ func main() {
 		var jsonErr struct {
 			Error string `json:"error"`
 		}
-		statusCode, buf := getFromAPI("miner_signed_action/" + string(miner.Address.ToBase58()) + "?" + values.Encode())
+		statusCode, buf := getFromAPI("miner_signed_action/" + string(GetPayout(miner.Address, miner.PayoutAddress).ToBase58()) + "?" + values.Encode())
 		_ = json.Unmarshal(buf, &jsonErr)
 		if statusCode != http.StatusOK {
 			renderPage(request, writer, views.NewErrorPage(http.StatusBadRequest, "Could not verify message", jsonErr.Error))
@@ -1254,21 +1254,16 @@ func main() {
 			address = params.Get("address")
 		}
 
-		minerAddress := address2.FromBase58(address)
-
 		miner := getTypeFromAPI[cmdutils.MinerInfoResult](fmt.Sprintf("miner_info/%s?noShares", address))
 
 		if miner == nil || miner.Address == nil {
 			renderPage(request, writer, views.NewErrorPage(http.StatusNotFound, "Address Not Found", "You need to have mined at least one share in the past. Come back later :)"))
 			return
 		}
-		if minerAddress == nil || miner.Address.SpendPub != minerAddress.SpendPub {
-			minerAddress = miner.Address
-		}
 
 		payouts := getStreamFromAPI[*index.Payout](fmt.Sprintf("payouts/%d?search_limit=0", miner.Id))
 		renderPage(request, writer, &views.PayoutsPage{
-			Miner:   miner.Address,
+			Miner:   GetPayout(miner.Address, miner.PayoutAddress),
 			Payouts: payouts,
 			Refresh: refresh,
 		})

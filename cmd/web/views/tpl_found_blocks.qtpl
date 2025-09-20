@@ -48,7 +48,7 @@
             {% else %}
             <td>unknown</td>
             {% endif %}
-            {%= TemplateRowMiner(ctx, b.MinerAddress, b.MinerAlias) %}
+            {%= TemplateRowMiner(ctx, get_payout(b.MinerAddress, b.MinerPayoutAddress), b.MinerAlias) %}
         {% endif %}
         <td>{%dul uint64(b.TransactionCount) %}</td>
         {% if b.Orphan() %}

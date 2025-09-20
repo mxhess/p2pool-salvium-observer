@@ -17,6 +17,7 @@ type MinersPage struct {
 {% code
 type MinersPageMinerEntry struct {
     Address *address.Address
+    PayoutAddress *address.Address
     Alias string
     SoftwareId p2pooltypes.SoftwareId
     SoftwareVersion p2pooltypes.SoftwareVersion
@@ -81,7 +82,7 @@ type MinersPageMinerEntry struct {
         {% for i, m := range p.Miners %}
         <tr style="padding-bottom: 10px; border-bottom: solid #aaa 1px">
             <td style="vertical-align: middle">{%d i+1 %}</td>
-            {%= TemplateRowMinerWithTag(p.Context(), m.Address, m.Alias, "th") %}
+            {%= TemplateRowMinerWithTag(p.Context(), get_payout(m.Address, m.PayoutAddress), m.Alias, "th") %}
             <td style="vertical-align: middle">{%= software_info(m.SoftwareId, m.SoftwareVersion) %}</td>
             {% code minerRatio := float64(m.Weight.Lo) / float64(p.WindowWeight.Lo) %}
             <td style="vertical-align: middle">{%f.3 minerRatio*100 %}%</td>

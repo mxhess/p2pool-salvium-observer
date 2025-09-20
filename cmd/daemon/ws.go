@@ -190,6 +190,7 @@ func setupEventHandler(p2api *api.P2PoolApi, indexDb *index.Index) {
 		for _, output := range outputs {
 			miner := indexDb.GetMiner(output.Miner)
 			output.MinerAddress = miner.Address()
+			output.MinerPayoutAddress = miner.OnlyPayoutAddress()
 			output.MinerAlias = miner.Alias()
 			result = append(result, output)
 		}
@@ -199,6 +200,7 @@ func setupEventHandler(p2api *api.P2PoolApi, indexDb *index.Index) {
 	fillFoundBlockResult := func(foundBlock *index.FoundBlock) *index.FoundBlock {
 		miner := indexDb.GetMiner(foundBlock.Miner)
 		foundBlock.MinerAddress = miner.Address()
+		foundBlock.MinerPayoutAddress = miner.OnlyPayoutAddress()
 		foundBlock.MinerAlias = miner.Alias()
 		return foundBlock
 	}
@@ -218,6 +220,7 @@ func setupEventHandler(p2api *api.P2PoolApi, indexDb *index.Index) {
 
 		miner := indexDb.GetMiner(sideBlock.Miner)
 		sideBlock.MinerAddress = miner.Address()
+		sideBlock.MinerPayoutAddress = miner.OnlyPayoutAddress()
 		sideBlock.MinerAlias = miner.Alias()
 
 		mainTipAtHeight := indexDb.GetMainBlockByHeight(sideBlock.MainHeight)

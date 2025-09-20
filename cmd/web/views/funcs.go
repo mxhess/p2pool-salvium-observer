@@ -3,16 +3,25 @@ package views
 import (
 	hex2 "encoding/hex"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"git.gammaspectra.live/P2Pool/consensus/v4/monero/address"
 	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
 	"git.gammaspectra.live/P2Pool/consensus/v4/types"
 	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
 	"github.com/mazznoer/colorgrad"
-	"strconv"
-	"strings"
-	"time"
 )
+
+func get_payout(main, sub *address.Address) *address.Address {
+	if sub != nil {
+		return sub
+	}
+	return main
+}
 
 func utc_date[T int64 | uint64 | int | float64](v T) string {
 	return time.Unix(int64(v), 0).UTC().Format("02-01-2006 15:04:05 MST")

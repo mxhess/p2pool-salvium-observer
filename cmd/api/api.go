@@ -71,6 +71,7 @@ func main() {
 			if fillMiner {
 				miner := indexDb.GetMiner(output.Miner)
 				output.MinerAddress = miner.Address()
+				output.MinerPayoutAddress = miner.OnlyPayoutAddress()
 				output.MinerAlias = miner.Alias()
 			}
 			result = append(result, output)
@@ -82,6 +83,7 @@ func main() {
 		if fillMiner {
 			miner := indexDb.GetMiner(foundBlock.Miner)
 			foundBlock.MinerAddress = miner.Address()
+			foundBlock.MinerPayoutAddress = miner.OnlyPayoutAddress()
 			foundBlock.MinerAlias = miner.Alias()
 		}
 		return foundBlock
@@ -91,6 +93,7 @@ func main() {
 		if fillMiner {
 			miner := indexDb.GetMiner(sideBlock.Miner)
 			sideBlock.MinerAddress = miner.Address()
+			sideBlock.MinerPayoutAddress = miner.OnlyPayoutAddress()
 			sideBlock.MinerAlias = miner.Alias()
 		}
 		if fillMined {
@@ -446,6 +449,7 @@ func main() {
 		_ = httputils.EncodeJson(request, writer, cmdutils.MinerInfoResult{
 			Id:                 miner.Id(),
 			Address:            miner.Address(),
+			PayoutAddress:      miner.OnlyPayoutAddress(),
 			Alias:              miner.Alias(),
 			Shares:             foundBlocksData,
 			LastShareHeight:    lastShareHeight,
@@ -724,7 +728,7 @@ func main() {
 			return
 		}
 
-		result := signedAction.VerifyFallbackToZero(os.Getenv("NET_SERVICE_ADDRESS"), miner.Address(), sig)
+		result := signedAction.VerifyFallbackToZero(os.Getenv("NET_SERVICE_ADDRESS"), miner.PayoutAddress(), sig)
 		if result == address.ResultFail {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusUnauthorized)
@@ -1341,7 +1345,7 @@ func main() {
 			return
 		}
 
-		http.Redirect(writer, request, fmt.Sprintf("/miner/%s", miner.Address().ToBase58()), http.StatusFound)
+		http.Redirect(writer, request, fmt.Sprintf("/miner/%s", miner.PayoutAddress().ToBase58()), http.StatusFound)
 	})
 
 	//other redirects
@@ -1762,12 +1766,13 @@ func main() {
 						for minerId, amount := range PayoutAmountHint(shares, poolBlock.Main.Coinbase.AuxiliaryData.TotalReward) {
 							miner := indexDb.GetMiner(minerId)
 							addresses[miner.Address().ToPackedAddress()] = &index.MainCoinbaseOutput{
-								Id:                types.ZeroHash,
-								Miner:             miner.Id(),
-								MinerAddress:      miner.Address(),
-								MinerAlias:        miner.Alias(),
-								Value:             amount,
-								GlobalOutputIndex: 0,
+								Id:                 types.ZeroHash,
+								Miner:              miner.Id(),
+								MinerAddress:       miner.Address(),
+								MinerPayoutAddress: miner.OnlyPayoutAddress(),
+								MinerAlias:         miner.Alias(),
+								Value:              amount,
+								GlobalOutputIndex:  0,
 							}
 						}
 
