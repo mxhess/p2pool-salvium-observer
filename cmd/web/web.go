@@ -872,7 +872,7 @@ func main() {
 			}
 		}
 
-		if minerPayoutAddress.IsSubaddress() && miner.PayoutAddress == nil && minerPayoutAddress.SpendPub == miner.Address.SpendPub {
+		if minerPayoutAddress != nil && minerPayoutAddress.IsSubaddress() && miner.PayoutAddress == nil && minerPayoutAddress.SpendPub == miner.Address.SpendPub {
 			miner.PayoutAddress = minerPayoutAddress
 		}
 
