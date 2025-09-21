@@ -4,6 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
+	"slices"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/client"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/client/rpc/daemon"
@@ -14,12 +21,6 @@ import (
 	p2poolapi "git.gammaspectra.live/P2Pool/observer-cmd-utils/api"
 	"git.gammaspectra.live/P2Pool/observer-cmd-utils/index"
 	cmdutils "git.gammaspectra.live/P2Pool/observer-cmd-utils/utils"
-	"net/http"
-	_ "net/http/pprof"
-	"slices"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 var sideBlocksLock sync.RWMutex
@@ -289,7 +290,7 @@ FROM
 				continue
 			}
 			mainTip := indexDb.GetMainBlockTip()
-			for h := mainTip.Height; h >= 0 && h >= (mainTip.Height-monero.TransactionUnlockTime); h-- {
+			for h := mainTip.Height; h >= 0 && h >= (mainTip.Height-monero.MinerRewardUnlockTime); h-- {
 				header := indexDb.GetMainBlockByHeight(h)
 				if header == nil {
 					break
