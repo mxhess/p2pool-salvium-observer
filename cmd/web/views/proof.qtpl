@@ -59,8 +59,8 @@ type ProofPage struct {
 
     <div style="border: #aaaaaa 1px dashed">
         <p><strong>Transaction Id:</strong> <span class="mono small user-select-all">{%= hex(p.Context(), p.Output.Id) %}</span></p>
-        <p><strong>Payout Address:</strong> <span class="mono small user-select-all">{%z= encodedMinerAddress %}</span></p>
-        <p><strong>OutProofV2:</strong> <span class="mono smaller user-select-all">{%s p.OutProof %}</span></p>
+        <p><strong>Address:</strong> <span class="mono small user-select-all">{%z= encodedMinerAddress %}</span></p>
+        <p><strong>Signature Proof:</strong> <span class="mono smaller user-select-all">{%s p.OutProof %}</span></p>
         <p>
             Verify on Monero GUI:<br/>
             Advanced -> Prove/check -> Check Transaction
