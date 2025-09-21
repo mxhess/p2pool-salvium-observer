@@ -264,6 +264,39 @@ FROM
 		utils.Panic(err)
 	}
 
+	//scan blocks that we missed that are not covered by height
+	if err = indexDb.Query(`
+SELECT s.i AS missing_height 
+FROM 
+    generate_series((SELECT MIN(height) FROM main_blocks WHERE height > 0), (SELECT MAX(height) FROM main_blocks)) s(i)
+WHERE NOT EXISTS (SELECT 1 FROM main_blocks WHERE height = s.i) ORDER BY missing_height ASC;
+`, func(row index.RowScanInterface) error {
+		var mainHeight uint64
+
+		err := row.Scan(&mainHeight)
+		if err != nil {
+			return err
+		}
+
+		utils.Logf("", "checking missing height %d", mainHeight)
+		if header, err := client.GetDefaultClient().GetBlockHeaderByHeight(mainHeight, ctx); err != nil {
+			utils.Errorf("", "not found height %d", mainHeight)
+		} else {
+			if err := scanHeader(header.BlockHeader); err != nil {
+				utils.Panic(err)
+			}
+
+			// remove already scanned
+			if i := slices.Index(backfillScan, header.BlockHeader.Hash); i != -1 {
+				backfillScan = slices.Delete(backfillScan, i, i+1)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		utils.Panic(err)
+	}
+
 	// backfill any missing headers when p2pool was down
 	for _, mainId := range backfillScan {
 		utils.Logf("", "checking backfill %s", mainId)
