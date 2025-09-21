@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.2
 
 require (
-	git.gammaspectra.live/P2Pool/consensus/v4 v4.9.0
+	git.gammaspectra.live/P2Pool/consensus/v4 v4.9.1
 	git.gammaspectra.live/P2Pool/go-json v0.99.0
 	git.gammaspectra.live/P2Pool/monero-base58 v1.0.0
 	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250920132554-86cec2aff63e
