@@ -1219,17 +1219,21 @@ func main() {
 
 		payout := payouts[requestIndex]
 
-		proof := ""
+		addr := GetPayout(payout.MinerAddress, payout.MinerPayoutAddress)
 
 		if addrStr := request.URL.Query().Get("address"); addrStr != "" {
-			addr := address2.FromBase58(addrStr)
-			if addr != nil && addr.IsSubaddress() && addr.SpendPub == payout.MinerAddress.SpendPub {
-				payout.MinerAddress = addr
-				proof = GetOutProofV2_SpecialPayout(addr, payout.Id, &raw.Side.CoinbasePrivateKey, "")
+			addr2 := address2.FromBase58(addrStr)
+			if addr2 != nil && addr2.IsSubaddress() && addr2.SpendPub == payout.MinerAddress.SpendPub {
+				addr = addr2
 			}
 		}
 
-		if proof == "" {
+		proof := ""
+
+		if addr.IsSubaddress() {
+			payout.MinerPayoutAddress = addr
+			proof = GetOutProofV2_SpecialPayout(addr, payout.Id, &raw.Side.CoinbasePrivateKey, "")
+		} else {
 			proof = address2.GetOutProofV2(payout.MinerAddress, payout.Id, &raw.Side.CoinbasePrivateKey, "")
 		}
 
