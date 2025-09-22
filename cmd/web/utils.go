@@ -16,14 +16,17 @@ func GetPayout(main, sub *address.Address) *address.Address {
 	return main
 }
 
-func GetOutProofV2_SpecialPayout(a address.Interface, txId types.Hash, txKey crypto.PrivateKey, message string) string {
+// GetOutProofV2_SpecialPayout Special derivation for subaddress P2Pool payouts
+// txKey pub is pre-derivated, so do not apply the special R = s * Di
+// otherwise send it via the special path
+func GetOutProofV2_SpecialPayout(a address.Interface, sa address.InterfaceSubaddress, txId types.Hash, txKey crypto.PrivateKey, message string) string {
 	prefixHash := crypto.Keccak256(txId[:], []byte(message))
 
 	var signature *crypto.Signature
 
 	sharedSecret := txKey.GetDerivation(a.ViewPublicKey())
-	if sa, ok := a.(address.InterfaceSubaddress); ok && sa.IsSubaddress() {
-		signature = crypto.GenerateTxProofV2(prefixHash, txKey.PublicKey(), sa.ViewPublicKey(), sa.SpendPublicKey(), sharedSecret, txKey)
+	if sa.IsSubaddress() {
+		signature = crypto.GenerateTxProofV2(prefixHash, txKey.PublicKey(), a.ViewPublicKey(), sa.SpendPublicKey(), sharedSecret, txKey)
 	} else {
 		signature = crypto.GenerateTxProofV2(prefixHash, txKey.PublicKey(), a.ViewPublicKey(), nil, sharedSecret, txKey)
 	}

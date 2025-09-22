@@ -22,6 +22,7 @@ type ProofPage struct {
     <h2>Payout Proof for output #{%dul uint64(p.Output.Index) %} on Monero block {%dul p.Block.MainHeight %}</h2>
     {% code minerAddress := get_payout(p.Output.MinerAddress, p.Output.MinerPayoutAddress) %}
     {% code encodedMinerAddress := minerAddress.ToBase58() %}
+    {% code encodedBaseMinerAddress := p.Output.MinerAddress.ToBase58() %}
     {% if p.Output.MinerAlias != "" %}
     <p><strong>Payout Address:</strong> {%s p.Output.MinerAlias %} (<span class="mono small"><a href="/miner/{%z= encodedMinerAddress %}">{%z= encodedMinerAddress %}</a>)</span></p>
     {% else %}
@@ -37,7 +38,7 @@ type ProofPage struct {
     <div style="border: #aaaaaa 1px dashed; margin-bottom: 20px">
         <p><strong>Transaction Id:</strong> <span class="mono small user-select-all">{%= hex(p.Context(), p.Output.Id) %}</span></p>
         <p>
-            <strong>Address:</strong> <span class="mono small user-select-all">{%z= p.Output.MinerAddress.ToBase58() %}</span>
+            <strong>Address:</strong> <span class="mono small user-select-all">{%z= encodedBaseMinerAddress %}</span>
             {% if minerAddress.IsSubaddress() %}
                 <br/><span class="smaller">This is the derived main address to be able to get P2Pool payouts on a Monero subaddress.</small>
             {% endif %}
@@ -45,21 +46,26 @@ type ProofPage struct {
         <p><strong>Transaction Private Key:</strong> <span class="mono small user-select-all">{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}</span></p>
         <p>
             Verify on Monero CLI:<br/>
-            <span class="mono smaller user-select-all">check_tx_key {%= hex(p.Context(), p.Output.Id) %} {%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %} {%z= p.Output.MinerAddress.ToBase58() %}</span>
+            <span class="mono smaller user-select-all">check_tx_key {%= hex(p.Context(), p.Output.Id) %} {%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %} {%z= encodedBaseMinerAddress %}</span>
         </p>
         <p>
-            <a href="{%s p.Context().GetUrl("p2pool.io") %}/explorer/prove/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on P2Pool Monero Explorer</a><br/>
-            <a href="{%s p.Context().GetUrl("xmrchain.net") %}/prove/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on xmrchain.net</a><br/>
-            <a href="{%s p.Context().GetUrl("localmonero.co") %}/blocks/tx/{%= hex(p.Context(), p.Output.Id) %}?xmraddress={%z= encodedMinerAddress %}&txprvkey={%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on LocalMonero</a><br/>
-            <a href="{%s p.Context().GetUrl("www.exploremonero.com") %}/receipt/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on Explore Monero</a><br/>
-            <a href="{%s p.Context().GetUrl("monero.com") %}/payment/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}/">Verify on Monero.com</a><br/>
+            <a href="{%s p.Context().GetUrl("p2pool.io") %}/explorer/prove/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedBaseMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on P2Pool Monero Explorer</a><br/>
+            <a href="{%s p.Context().GetUrl("xmrchain.net") %}/prove/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedBaseMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on xmrchain.net</a><br/>
+            <a href="{%s p.Context().GetUrl("localmonero.co") %}/blocks/tx/{%= hex(p.Context(), p.Output.Id) %}?xmraddress={%z= encodedBaseMinerAddress %}&txprvkey={%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on LocalMonero</a><br/>
+            <a href="{%s p.Context().GetUrl("www.exploremonero.com") %}/receipt/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedBaseMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}">Verify on Explore Monero</a><br/>
+            <a href="{%s p.Context().GetUrl("monero.com") %}/payment/{%= hex(p.Context(), p.Output.Id) %}/{%z= encodedBaseMinerAddress %}/{%= hex(p.Context(), p.Raw.Side.CoinbasePrivateKey) %}/">Verify on Monero.com</a><br/>
         </p>
     </div>
 
 
     <div style="border: #aaaaaa 1px dashed">
         <p><strong>Transaction Id:</strong> <span class="mono small user-select-all">{%= hex(p.Context(), p.Output.Id) %}</span></p>
-        <p><strong>Address:</strong> <span class="mono small user-select-all">{%z= encodedMinerAddress %}</span></p>
+        <p>
+            <strong>Address:</strong> <span class="mono small user-select-all">{%z= encodedBaseMinerAddress %}</span>
+            {% if minerAddress.IsSubaddress() %}
+                <br/><span class="smaller">This is the derived main address to be able to get P2Pool payouts on a Monero subaddress.</small>
+            {% endif %}
+        </p>
         <p><strong>Signature Proof:</strong> <span class="mono smaller user-select-all">{%s p.OutProof %}</span></p>
         <p>
             Verify on Monero GUI:<br/>
@@ -69,7 +75,7 @@ type ProofPage struct {
             Verify on Monero CLI:<br/>
             Place the signature proof on a file, then call check_tx_proof in CLI. Ensure no newlines or spaces exist on the file.<br/>
             <span class="mono smaller">$ <span class="user-select-all">echo -n "{%s p.OutProof %}" > proof.txt</span></span><br/>
-            <span class="mono smaller user-select-all">check_tx_proof {%= hex(p.Context(), p.Output.Id) %} {%z= encodedMinerAddress %} proof.txt</span>
+            <span class="mono smaller user-select-all">check_tx_proof {%= hex(p.Context(), p.Output.Id) %} {%z= encodedBaseMinerAddress %} proof.txt</span>
         </p>
     </div>
 </div>

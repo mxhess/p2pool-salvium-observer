@@ -1228,14 +1228,22 @@ func main() {
 			}
 		}
 
-		proof := ""
-
 		if addr.IsSubaddress() {
 			payout.MinerPayoutAddress = addr
-			proof = GetOutProofV2_SpecialPayout(addr, payout.Id, &raw.Side.CoinbasePrivateKey, "")
-		} else {
-			proof = address2.GetOutProofV2(payout.MinerAddress, payout.Id, &raw.Side.CoinbasePrivateKey, "")
 		}
+
+		/*
+			proof := ""
+
+			if addr.IsSubaddress() {
+				payout.MinerPayoutAddress = addr
+				//TODO
+				proof = GetOutProofV2_SpecialPayout(payout.MinerAddress, addr, payout.Id, &raw.Side.CoinbasePrivateKey, "")
+			} else {
+				proof = address2.GetOutProofV2(payout.MinerAddress, payout.Id, &raw.Side.CoinbasePrivateKey, "")
+			}
+		*/
+		proof := address2.GetOutProofV2(payout.MinerAddress, payout.Id, &raw.Side.CoinbasePrivateKey, "")
 
 		renderPage(request, writer, &views.ProofPage{
 			Output:   &payout,
