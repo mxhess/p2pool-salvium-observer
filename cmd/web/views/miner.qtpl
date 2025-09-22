@@ -145,6 +145,7 @@ type MinerPage struct {
             This Monero subaddress is where you will receive P2Pool payouts.
         </small>
     </p>
+    {% if p.Miner.Address.Compare(minerAddress) != 0 %}
     <p class="small">
         <strong>P2Pool Address:</strong> <span class="mono small"><a href="/miner/{%z= p.Miner.Address.ToBase58() %}">{%z= p.Miner.Address.ToBase58() %}</a></span><br/>
         <small>
@@ -152,6 +153,7 @@ type MinerPage struct {
             Statistics are tracked internally via this address. P2Pool will see this address, but payouts will be sent on your subaddress.
         </small>
     </p>
+    {% endif %}
     {% else %}
     <p>
         <strong>Payout Address:</strong> <span class="mono small">{%z= minerAddressStr %}</span>
