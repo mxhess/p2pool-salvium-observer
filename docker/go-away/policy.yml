@@ -119,8 +119,9 @@ rules:
       - 'path == "/"'
       - 'path == "/calculate-share-time"'
       - 'path.startsWith("/share/")'
+      # redirects
+      - 'path.matches("^/[ctbspm]/")'
     action: pass
-
 
   - name: api
     conditions:
