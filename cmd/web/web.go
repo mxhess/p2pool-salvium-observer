@@ -1047,7 +1047,7 @@ func main() {
 			minerPage.ExpectedRewardPerWindow = poolInfo.SideChain.Window.Weight.Mul64(expectedRewardNextBlock).Div(poolInfo.MainChain.NextDifficulty).Lo
 		}
 
-		dailyHashRate := types.DifficultyFrom64(poolInfo.SideChain.LastBlock.Difficulty).Mul(longDiff).Div(dailyWeight).Div64(consensus.TargetBlockTime).Lo
+		dailyHashRate := types.DifficultyFrom64(poolInfo.SideChain.LastBlock.Difficulty).Mul(longDiff).Div(dailyWeight).Lo
 
 		hashRate := float64(0)
 		magnitude := float64(1000)
