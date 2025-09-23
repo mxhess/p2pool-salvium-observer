@@ -156,7 +156,7 @@ type MinerPage struct {
     {% endif %}
     {% else %}
     <p>
-        <strong>Payout Address:</strong> <span class="mono small">{%z= minerAddressStr %}</span>
+        <strong>Payout Address:</strong> <span class="mono small">{%z= minerAddressStr %}</span><br/>
         <small>
             This Monero address is where you will receive P2Pool payouts.
         </small>

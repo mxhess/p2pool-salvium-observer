@@ -286,7 +286,14 @@ func main() {
 		blocks := getSliceFromAPI[*index.FoundBlock](fmt.Sprintf("found_blocks?limit=%d", blocksToFetch), 5)
 		shares := getSideBlocksFromAPI("side_blocks?limit=50", 5)
 
-		blocksFound := cmdutils.NewPositionChart(30*4, consensus.ChainWindowSize*4)
+		windowDurationSeconds := poolInfo.SideChain.Consensus.TargetBlockTime * poolInfo.SideChain.Consensus.ChainWindowSize
+		windowDuration := time.Second * time.Duration(windowDurationSeconds)
+		windowsPerDay := uint64((time.Hour * 24) / windowDuration)
+		if (time.Hour*24)%windowDuration > 0 {
+			windowsPerDay++
+		}
+
+		blocksFound := cmdutils.NewPositionChart(30*windowsPerDay, consensus.ChainWindowSize*windowsPerDay)
 
 		tip := int64(poolInfo.SideChain.LastBlock.SideHeight)
 		for _, b := range blocks {
@@ -879,8 +886,14 @@ func main() {
 		poolInfo := getTypeFromAPI[cmdutils.PoolInfoResult]("pool_info", 5)
 		lastPoolInfo.Store(poolInfo)
 
-		const totalWindows = 4
-		wsize := consensus.ChainWindowSize * totalWindows
+		windowDurationSeconds := poolInfo.SideChain.Consensus.TargetBlockTime * poolInfo.SideChain.Consensus.ChainWindowSize
+		windowDuration := time.Second * time.Duration(windowDurationSeconds)
+		windowsPerDay := uint64((time.Hour * 24) / windowDuration)
+		if (time.Hour*24)%windowDuration > 0 {
+			windowsPerDay++
+		}
+
+		wsize := consensus.ChainWindowSize * windowsPerDay
 
 		currentWindowSize := uint64(poolInfo.SideChain.Window.Blocks)
 
@@ -932,8 +945,9 @@ func main() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				//get a bit over the expected required
-				payouts = getSliceFromAPI[*index.Payout](fmt.Sprintf("payouts/%d?from_timestamp=%d", miner.Id, uint64(time.Now().Unix())-(consensus.ChainWindowSize*consensus.TargetBlockTime*(totalWindows+1))))
+				//get a bit over the expected required, minimum two weeks
+				t := max(time.Hour*24*7*2, time.Duration(consensus.ChainWindowSize*consensus.TargetBlockTime*(windowsPerDay+1))*time.Second)
+				payouts = getSliceFromAPI[*index.Payout](fmt.Sprintf("payouts/%d?from_timestamp=%d", miner.Id, time.Now().Add(-t).Unix()))
 			}()
 			wg.Wait()
 		} else {
@@ -945,14 +959,14 @@ func main() {
 		sharesInWindow := cmdutils.NewPositionChart(30, uint64(poolInfo.SideChain.Window.Blocks))
 		unclesInWindow := cmdutils.NewPositionChart(30, uint64(poolInfo.SideChain.Window.Blocks))
 
-		sharesFound := cmdutils.NewPositionChart(30*totalWindows, consensus.ChainWindowSize*totalWindows)
-		unclesFound := cmdutils.NewPositionChart(30*totalWindows, consensus.ChainWindowSize*totalWindows)
+		sharesFound := cmdutils.NewPositionChart(30*windowsPerDay, consensus.ChainWindowSize*windowsPerDay)
+		unclesFound := cmdutils.NewPositionChart(30*windowsPerDay, consensus.ChainWindowSize*windowsPerDay)
 
 		var longDiff, windowDiff types.Difficulty
 
 		wend := tipHeight - currentWindowSize
 
-		foundPayout := cmdutils.NewPositionChart(30*totalWindows, consensus.ChainWindowSize*totalWindows)
+		foundPayout := cmdutils.NewPositionChart(30*windowsPerDay, consensus.ChainWindowSize*windowsPerDay)
 		for _, p := range payouts {
 			foundPayout.Add(int(int64(tipHeight)-int64(p.SideHeight)), 1)
 		}
@@ -1005,7 +1019,7 @@ func main() {
 			}{
 				Resolution:       int(foundPayout.Resolution()),
 				ResolutionWindow: int(sharesInWindow.Resolution()),
-				SeparatorIndex:   int(consensus.ChainWindowSize*totalWindows - currentWindowSize),
+				SeparatorIndex:   int(consensus.ChainWindowSize*windowsPerDay - currentWindowSize),
 				Blocks:           sharesFound,
 				BlocksInWindow:   sharesInWindow,
 				Uncles:           unclesFound,
@@ -1023,17 +1037,17 @@ func main() {
 			LastSweeps:         sweeps,
 		}
 
+		dailyWeight := poolInfo.SideChain.Window.Weight.Mul64(windowDurationSeconds * windowsPerDay).Div64(uint64(poolInfo.SideChain.Window.Blocks))
+
 		if windowDiff.Cmp64(0) > 0 {
-			longWindowWeight := poolInfo.SideChain.Window.Weight.Mul64(4).Mul64(poolInfo.SideChain.Consensus.ChainWindowSize).Div64(uint64(poolInfo.SideChain.Window.Blocks))
-			averageRewardPerBlock := longDiff.Mul64(poolInfo.MainChain.BaseReward).Div(longWindowWeight).Lo
-			minerPage.ExpectedRewardPerDay = longWindowWeight.Mul64(averageRewardPerBlock).Div(poolInfo.MainChain.NextDifficulty).Lo
+			averageRewardPerBlock := longDiff.Mul64(poolInfo.MainChain.BaseReward).Div(dailyWeight).Lo
+			minerPage.ExpectedRewardPerDay = dailyWeight.Mul64(averageRewardPerBlock).Div(poolInfo.MainChain.NextDifficulty).Lo
 
 			expectedRewardNextBlock := windowDiff.Mul64(poolInfo.MainChain.BaseReward).Div(poolInfo.SideChain.Window.Weight).Lo
 			minerPage.ExpectedRewardPerWindow = poolInfo.SideChain.Window.Weight.Mul64(expectedRewardNextBlock).Div(poolInfo.MainChain.NextDifficulty).Lo
 		}
 
-		totalWeight := poolInfo.SideChain.Window.Weight.Mul64(4).Mul64(poolInfo.SideChain.Consensus.ChainWindowSize).Div64(uint64(poolInfo.SideChain.Window.Blocks))
-		dailyHashRate := types.DifficultyFrom64(poolInfo.SideChain.LastBlock.Difficulty).Mul(longDiff).Div(totalWeight).Div64(consensus.TargetBlockTime).Lo
+		dailyHashRate := types.DifficultyFrom64(poolInfo.SideChain.LastBlock.Difficulty).Mul(longDiff).Div(dailyWeight).Div64(consensus.TargetBlockTime).Lo
 
 		hashRate := float64(0)
 		magnitude := float64(1000)
