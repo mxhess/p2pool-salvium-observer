@@ -1349,7 +1349,7 @@ func main() {
 	})
 
 	//other redirects
-	serveMux.HandleFunc("/api/redirect/last_found{kind:|/full|/light|/raw|/info|/payouts|/coinbase}", func(writer http.ResponseWriter, request *http.Request) {
+	serveMux.HandleFunc("/api/redirect/last_found{kind:|/full|/light|/raw|/blob|/info|/payouts|/coinbase}", func(writer http.ResponseWriter, request *http.Request) {
 		b := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE reward > 0", 1))
 		if b == nil {
 			writer.WriteHeader(http.StatusNotFound)
@@ -1357,7 +1357,7 @@ func main() {
 		}
 		http.Redirect(writer, request, fmt.Sprintf("/api/block_by_id/%s%s?%s", b.MainBlock.SideTemplateId.String(), mux.Vars(request)["kind"], request.URL.RawQuery), http.StatusFound)
 	})
-	serveMux.HandleFunc("/api/redirect/tip{kind:|/full|/light|/raw|/info|/payouts|/coinbase}", func(writer http.ResponseWriter, request *http.Request) {
+	serveMux.HandleFunc("/api/redirect/tip{kind:|/full|/light|/raw|/blob|/info|/payouts|/coinbase}", func(writer http.ResponseWriter, request *http.Request) {
 		http.Redirect(writer, request, fmt.Sprintf("/api/block_by_id/%s%s?%s", indexDb.GetSideBlockTip().TemplateId.String(), mux.Vars(request)["kind"], request.URL.RawQuery), http.StatusFound)
 	})
 
@@ -1648,7 +1648,7 @@ func main() {
 		_ = httputils.EncodeJson(request, writer, difficulty)
 	})
 
-	serveMux.HandleFunc("/api/block_by_{by:id|height}/{block:[0-9a-f]+|[0-9]+}{kind:|/full|/light|/raw|/payouts|/coinbase}", func(writer http.ResponseWriter, request *http.Request) {
+	serveMux.HandleFunc("/api/block_by_{by:id|height}/{block:[0-9a-f]+|[0-9]+}{kind:|/full|/light|/raw|/blob|/payouts|/coinbase}", func(writer http.ResponseWriter, request *http.Request) {
 
 		params := request.URL.Query()
 
@@ -1692,7 +1692,7 @@ func main() {
 		requestKind := mux.Vars(request)["kind"]
 
 		switch requestKind {
-		case "/light", "/full", "/raw":
+		case "/light", "/full", "/raw", "/blob":
 			raw := p2api.LightByMainIdWithHint(sideBlock.MainId, sideBlock.TemplateId)
 
 			if raw == nil {
@@ -1707,7 +1707,7 @@ func main() {
 				return
 			}
 
-			if requestKind == "/full" || requestKind == "/raw" {
+			if requestKind == "/full" || requestKind == "/raw" || requestKind == "/blob" {
 				// Process block if needed
 				if _, err := raw.PreProcessBlockWithOutputs(consensus, func(h types.Hash) *sidechain.PoolBlock {
 					b := p2api.LightByTemplateId(h)
@@ -1738,6 +1738,12 @@ func main() {
 				writer.Header().Set("Content-Type", "text/plain")
 				writer.WriteHeader(http.StatusOK)
 				buf, _ := raw.MarshalBinary()
+				_, _ = writer.Write(buf)
+			} else if requestKind == "/blob" {
+				writer.Header().Set("Content-Type", "text/plain")
+				writer.WriteHeader(http.StatusOK)
+				buf, _ := raw.Main.MarshalBinary()
+				buf = buf[:hex.Encode(buf, buf)]
 				_, _ = writer.Write(buf)
 			} else {
 				writer.Header().Set("Content-Type", "application/json; charset=utf-8")
