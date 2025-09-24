@@ -1743,8 +1743,7 @@ func main() {
 				writer.Header().Set("Content-Type", "text/plain")
 				writer.WriteHeader(http.StatusOK)
 				buf, _ := raw.Main.MarshalBinary()
-				buf = buf[:hex.Encode(buf, buf)]
-				_, _ = writer.Write(buf)
+				_, _ = writer.Write([]byte(hex.EncodeToString(buf)))
 			} else {
 				writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 				writer.WriteHeader(http.StatusOK)
