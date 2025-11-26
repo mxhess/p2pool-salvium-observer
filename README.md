@@ -1,6 +1,6 @@
-# P2Pool Observer
+# P2Pool Salvium Observer
 
-This repository contains the running code to produce statistics and historical archives of [Monero P2Pool](https://github.com/SChernykh/p2pool) decentralized pool.
+This repository contains the running code to produce statistics and historical archives of [P2Pool Salvium](https://github.com/mxhess/p2pool-salvium) decentralized pool.
 
 ## Reporting issues
 
