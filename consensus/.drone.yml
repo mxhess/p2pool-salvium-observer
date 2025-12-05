@@ -1,0 +1,162 @@
+---
+kind: pipeline
+type: docker
+name: amd64
+platform:
+  os: linux
+  arch: amd64
+
+environment:
+  GOPROXY: direct
+  GOARCH: amd64
+  GOAMD64: v3
+  GOOS: linux
+  GOTRACEBACK: 2
+  GOEXPERIMENT: "cgocheck2,newinliner"
+  CFLAGS: "-march=native -Ofast"
+  LDFLAGS: "-flto"
+  PKG_CONFIG_PATH: "/drone/src/build_deps/lib/pkgconfig"
+  LD_LIBRARY_PATH: "/drone/src/build_deps/lib"
+  CGO_CFLAGS: "-I/drone/src/build_deps/include"
+  CGO_LDFLAGS: "-L/drone/src/build_deps/lib"
+
+workspace:
+  path: /drone/src
+
+steps:
+  - name: init-tests
+    image: alpine
+    commands:
+      - apk add --no-cache curl bash
+      - ./testdata/setup.sh
+  - name: build-sources
+    image: alpine
+    commands:
+      - apk update
+      - apk add --no-cache git gcc g++ musl-dev bash autoconf automake cmake make libtool
+      - cd /tmp
+      - git clone --depth 1 --branch v1.2.1 https://github.com/tevador/RandomX.git && cd RandomX && mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX:PATH=/drone/src/build_deps && make -j$(nproc) && make install && cd ../..
+  - name: test-cgo
+    image: golang:1.24-alpine3.22
+    depends_on:
+      - init-tests
+      - build-sources
+    environment:
+      MONEROD_RPC_URL:
+        from_secret: MONEROD_RPC_URL
+      MONEROD_ZMQ_URL:
+        from_secret: MONEROD_ZMQ_URL
+      CGO_ENABLED: "1"
+    commands:
+      - apk update
+      - apk add --no-cache git gcc g++ musl-dev pkgconfig
+      - go list -f '{{.Dir}}/...' -m | xargs -n 1 sh -c 'go test -tags enable_randomx_library -p 1 -failfast -timeout 20m -cover -gcflags=-d=checkptr -v $0 || exit 255'
+  - name: test-go-asm
+    image: golang:1.24-alpine3.22
+    depends_on:
+      - init-tests
+    environment:
+      MONEROD_RPC_URL:
+        from_secret: MONEROD_RPC_URL
+      MONEROD_ZMQ_URL:
+        from_secret: MONEROD_ZMQ_URL
+      CGO_ENABLED: "0"
+    commands:
+      - apk update
+      - apk add --no-cache git
+      - go list -f '{{.Dir}}/...' -m | xargs -n 1 sh -c 'go test -p 1 -failfast -timeout 20m -cover -v $0 || exit 255'
+  - name: test-go-purego
+    image: golang:1.24-alpine3.22
+    depends_on:
+      - init-tests
+    environment:
+      MONEROD_RPC_URL:
+        from_secret: MONEROD_RPC_URL
+      MONEROD_ZMQ_URL:
+        from_secret: MONEROD_ZMQ_URL
+      CGO_ENABLED: "0"
+    commands:
+      - apk update
+      - apk add --no-cache git
+      - go list -f '{{.Dir}}/...' -m | xargs -n 1 sh -c 'go test -tags purego -p 1 -failfast -short -timeout 20m -cover -v $0 || exit 255'
+---
+kind: pipeline
+type: docker
+name: arm64
+platform:
+  os: linux
+  arch: arm64
+
+environment:
+  GOPROXY: direct
+  GOARCH: arm64
+  GOOS: linux
+  GOTRACEBACK: 2
+  GOEXPERIMENT: "cgocheck2,newinliner"
+  CFLAGS: "-march=native -Ofast"
+  LDFLAGS: "-flto"
+  PKG_CONFIG_PATH: "/drone/src/build_deps/lib/pkgconfig"
+  LD_LIBRARY_PATH: "/drone/src/build_deps/lib"
+  CGO_CFLAGS: "-I/drone/src/build_deps/include"
+  CGO_LDFLAGS: "-L/drone/src/build_deps/lib"
+
+workspace:
+  path: /drone/src
+
+steps:
+  - name: init-tests
+    image: alpine
+    commands:
+      - apk add --no-cache curl bash
+      - ./testdata/setup.sh
+  - name: build-sources
+    image: alpine
+    commands:
+      - apk update
+      - apk add --no-cache git gcc g++ musl-dev bash autoconf automake cmake make libtool
+      - cd /tmp
+      - git clone --depth 1 --branch v1.2.1 https://github.com/tevador/RandomX.git && cd RandomX && mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX:PATH=/drone/src/build_deps && make -j$(nproc) && make install && cd ../..
+  - name: test-cgo
+    image: golang:1.24-alpine3.22
+    depends_on:
+      - init-tests
+      - build-sources
+    environment:
+      MONEROD_RPC_URL:
+        from_secret: MONEROD_RPC_URL
+      MONEROD_ZMQ_URL:
+        from_secret: MONEROD_ZMQ_URL
+      CGO_ENABLED: "1"
+    commands:
+      - apk update
+      - apk add --no-cache git gcc g++ musl-dev pkgconfig
+      - go list -f '{{.Dir}}/...' -m | xargs -n 1 sh -c 'go test -tags enable_randomx_library -p 1 -failfast -timeout 20m -cover -gcflags=-d=checkptr -v $0 || exit 255'
+  - name: test-go
+    image: golang:1.24-alpine3.22
+    depends_on:
+      - init-tests
+    environment:
+      MONEROD_RPC_URL:
+        from_secret: MONEROD_RPC_URL
+      MONEROD_ZMQ_URL:
+        from_secret: MONEROD_ZMQ_URL
+      CGO_ENABLED: "0"
+    commands:
+      - apk update
+      - apk add --no-cache git
+      - go list -f '{{.Dir}}/...' -m | xargs -n 1 sh -c 'go test -p 1 -failfast -timeout 60m -cover -v $0 || exit 255'
+  - name: test-go-purego
+    image: golang:1.24-alpine3.22
+    depends_on:
+      - init-tests
+    environment:
+      MONEROD_RPC_URL:
+        from_secret: MONEROD_RPC_URL
+      MONEROD_ZMQ_URL:
+        from_secret: MONEROD_ZMQ_URL
+      CGO_ENABLED: "0"
+    commands:
+      - apk update
+      - apk add --no-cache git
+      - go list -f '{{.Dir}}/...' -m | xargs -n 1 sh -c 'go test -tags purego -p 1 -failfast -timeout 60m -short -cover -v $0 || exit 255'
+...

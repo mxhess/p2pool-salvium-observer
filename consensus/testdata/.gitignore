@@ -1,0 +1,18 @@
+v4_2_sidechain_dump.dat.xz
+v4_2_sidechain_dump_mini.dat.xz
+v4_2_sidechain_dump_nano.dat.xz
+
+v4_block.dat
+v4_sidechain_dump.dat.gz
+v4_sidechain_dump_mini.dat.gz
+v4_sidechain_dump_nano.dat.gz
+
+v2_block.dat
+v2_crypto_tests.txt
+v2_sidechain_dump.dat.gz
+v2_sidechain_dump_mini.dat.gz
+
+# old pre-v2 hardfork testdata
+v1_mainnet_test2_block.dat
+v1_sidechain_dump.dat
+v1_sidechain_dump_mini.dat
