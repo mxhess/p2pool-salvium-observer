@@ -27,13 +27,6 @@ type CoinbaseTransaction struct {
 
 	ExtraBaseRCT uint8 `json:"extra_base_rct"`
 
-	// Salvium-specific fields (v3+)
-	TxType          TransactionType       `json:"tx_type,omitempty"`
-	AmountBurnt     uint64                `json:"amount_burnt,omitempty"`
-	ReturnAddress   crypto.PublicKeyBytes `json:"return_address,omitempty"`
-	SourceAssetType string                `json:"source_asset_type,omitempty"`
-	DestAssetType   string                `json:"dest_asset_type,omitempty"`
-
 	// AuxiliaryData Used by p2pool serialized pruned blocks
 	AuxiliaryData CoinbaseTransactionAuxiliaryData `json:"auxiliary_data"`
 }
@@ -74,7 +67,7 @@ func (c *CoinbaseTransaction) FromReader(reader utils.ReaderAndByteReader, canBe
 		return err
 	}
 
-	if c.Version < 2 || c.Version > 4 {
+	if c.Version != 2 {
 		return errors.New("version not supported")
 	}
 
@@ -124,7 +117,11 @@ func (c *CoinbaseTransaction) FromReader(reader utils.ReaderAndByteReader, canBe
 		if !canBePruned {
 			return errors.New("pruned outputs not supported")
 		}
+
 		// Outputs are not in the buffer and must be calculated from sidechain data
+		// We only have total reward and outputs blob size here
+		//special case, pruned block. outputs have to be generated from chain
+
 		if c.AuxiliaryData.TotalReward, err = utils.ReadCanonicalUvarint(reader); err != nil {
 			return err
 		}
@@ -134,6 +131,7 @@ func (c *CoinbaseTransaction) FromReader(reader utils.ReaderAndByteReader, canBe
 		}
 
 		if containsAuxiliaryTemplateId {
+			// Required by sidechain.get_outputs_blob() to speed up repeated broadcasts from different peers
 			if _, err = io.ReadFull(reader, c.AuxiliaryData.TemplateId[:]); err != nil {
 				return err
 			}
@@ -148,33 +146,15 @@ func (c *CoinbaseTransaction) FromReader(reader utils.ReaderAndByteReader, canBe
 	if err = c.Extra.FromReader(limitReader); err != nil {
 		return errors.Join(ErrInvalidTransactionExtra, err)
 	}
-
 	if limitReader.Left() > 0 {
 		return errors.New("bytes leftover in extra data")
 	}
-
 	if err = binary.Read(reader, binary.LittleEndian, &c.ExtraBaseRCT); err != nil {
 		return err
 	}
 
 	if c.ExtraBaseRCT != 0 {
 		return errors.New("invalid extra base RCT")
-	}
-
-	// Salvium: Read transaction type and additional fields (v3+)
-	if c.Version >= 3 {
-		var txType uint64
-		if txType, err = utils.ReadCanonicalUvarint(reader); err != nil {
-			return err
-		}
-		c.TxType = TransactionType(txType)
-
-		// Read amount_burnt if type is not UNSET or PROTOCOL
-		if c.TxType != TxTypeUnset && c.TxType != TxTypeProtocol {
-			if c.AmountBurnt, err = utils.ReadCanonicalUvarint(reader); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
