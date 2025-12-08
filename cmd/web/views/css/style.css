@@ -1,17 +1,37 @@
+/* WhiskyMine P2Pool Observer Theme */
+/* Based on SupportSAL design system */
+
 body {
     margin: 0;
     padding: 0;
-    color: #d1d1d1;
-    background-color: #4c4c4c;
-
-    font-family: Helvetica, Arial, sans-serif;
+    color: #F7F8FA;
+    background-color: #181C24;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
     text-align: inherit;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
 }
 
-ul{
+h1 {
+    color: #40E0D0;
+    font-weight: bold;
+}
+
+h1 a {
+    text-decoration: none !important;
+    color: #40E0D0;
+}
+
+ul {
     list-style-position: inside;
 }
 
@@ -30,33 +50,30 @@ ul{
     width: 96%;
 }
 
-.hl-found{
-    background: rgba(0%, 75.3%, 0%, 0.5);
+.hl-found {
+    background: rgba(10, 235, 133, 0.3);
 }
 
 .mono {
-    font-family: "Lucida Console", Monaco, monospace;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
     white-space: nowrap;
     line-break: strict;
+    letter-spacing: 0.02em;
 }
 
 a, a:hover, a:visited, a:link, a:active {
-    text-decoration: underline dotted #333;
-    color: inherit;
+    text-decoration: underline dotted rgba(64, 224, 208, 0.5);
+    color: #40E0D0;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: #0AEB85;
 }
 
 form {
     display: inline-block;
     text-align: center;
-}
-
-h1 {
-    color: #ff6600;
-    font-weight: bold;
-}
-
-h1 a {
-    text-decoration: none !important;
 }
 
 .small {
@@ -77,4 +94,154 @@ code.smaller {
 
 .user-select-all {
     user-select: all;
+}
+
+/* Tables */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+table th {
+    background: rgba(64, 224, 208, 0.1);
+    padding: 1rem;
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: #40E0D0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(64, 224, 208, 0.3);
+}
+
+table td {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+table tr:hover {
+    background: rgba(64, 224, 208, 0.05);
+}
+
+/* Cards and sections */
+.stat-card, .info-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 5px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #40E0D0;
+    box-shadow: inset 0px 25px 16px -22px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(64, 224, 208, 0.2);
+}
+
+/* Highlighted values */
+.value-highlight {
+    color: #0AEB85;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+}
+
+.label-highlight {
+    color: #40E0D0;
+    font-weight: 600;
+}
+
+/* Status indicators */
+.status-good {
+    color: #0AEB85;
+}
+
+.status-warning {
+    color: #ff9800;
+}
+
+.status-error {
+    color: rgba(203, 10, 10, 0.9);
+}
+
+/* Code blocks */
+code, pre {
+    background: rgba(64, 224, 208, 0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    color: #40E0D0;
+}
+
+pre {
+    padding: 1rem;
+    overflow-x: auto;
+}
+
+/* Buttons */
+button, .button {
+    background: rgba(64, 224, 208, 0.1);
+    border: 1px solid rgba(64, 224, 208, 0.7);
+    color: #40E0D0;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+button:hover, .button:hover {
+    background: rgba(64, 224, 208, 0.2);
+    border-color: #40E0D0;
+}
+
+/* Input fields */
+input[type="text"], input[type="number"], select, textarea {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(64, 224, 208, 0.7);
+    border-radius: 5px;
+    color: #F7F8FA;
+    padding: 0.5rem;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.3s;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #40E0D0;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Loading indicators */
+.loading {
+    color: #818181;
+    font-style: italic;
+    text-align: center;
+    padding: 2rem;
+}
+
+/* Error messages */
+.error {
+    background: rgba(203, 10, 10, 0.2);
+    border-left: 4px solid rgba(203, 10, 10, 0.9);
+    color: #F7F8FA;
+    padding: 1rem;
+    border-radius: 5px;
+    margin: 1rem 0;
+}
+
+/* Success messages */
+.success {
+    background: rgba(10, 235, 133, 0.2);
+    border-left: 4px solid #0AEB85;
+    color: #F7F8FA;
+    padding: 1rem;
+    border-radius: 5px;
+    margin: 1rem 0;
 }
