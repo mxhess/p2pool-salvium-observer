@@ -139,7 +139,7 @@ type MinerPage struct {
 
     {% if p.Miner.Alias != "" %}
     <p><strong>Miner Alias:</strong> <span class="mono">{%s p.Miner.Alias %}</span></p>
-    <p><small>Miner Alias is user content and not verified. This value should only be used for vanity purposes.</small></p>
+    <p><small>Miner Alias is user content and not verified.</small></p>
     {% endif %}
 
     {% if !minerAddress.IsSubaddress() %}
