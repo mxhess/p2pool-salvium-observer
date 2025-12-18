@@ -2,3 +2,7 @@
 default.pgo.tmp
 .env
 docker-compose.override.yml
+daemon
+daemon2
+api
+web

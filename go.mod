@@ -1,38 +1,39 @@
-
 module git.gammaspectra.live/P2Pool/observer
 
-
-
 go 1.24.0
+
 toolchain go1.24.2
 
 require (
-        git.gammaspectra.live/P2Pool/consensus/v4 v4.9.1
-        git.gammaspectra.live/P2Pool/go-json v0.99.0
-        git.gammaspectra.live/P2Pool/monero-base58 v1.0.0
-        git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250923124335-97021d2c8dc9
-        github.com/gorilla/mux v1.8.1
-        github.com/mazznoer/colorgrad v0.10.0
-        github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc
-        github.com/valyala/quicktemplate v1.8.0
-        nhooyr.io/websocket v1.8.17
+	git.gammaspectra.live/P2Pool/consensus/v4 v4.9.1
+	git.gammaspectra.live/P2Pool/go-json v0.99.0
+	git.gammaspectra.live/P2Pool/monero-base58 v1.0.0
+	git.gammaspectra.live/P2Pool/observer-cmd-utils v0.0.0-20250923124335-97021d2c8dc9
+	github.com/gorilla/mux v1.8.1
+	github.com/mazznoer/colorgrad v0.10.0
+	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc
+	github.com/valyala/quicktemplate v1.8.0
+	nhooyr.io/websocket v1.8.17
 )
 
 require (
-        git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20250621105958-76afb56a7fa0 // indirect
-        git.gammaspectra.live/P2Pool/go-randomx/v4 v4.2.1 // indirect
-        git.gammaspectra.live/P2Pool/randomx-go-bindings v1.0.0 // indirect
-        git.gammaspectra.live/P2Pool/sha3 v0.17.0 // indirect
-        git.gammaspectra.live/P2Pool/softfloat64 v1.0.1 // indirect
-        github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
-        github.com/jxskiss/base62 v1.1.0 // indirect
-        github.com/lib/pq v1.10.9 // indirect
-        github.com/mazznoer/csscolorparser v0.1.6 // indirect
-        github.com/valyala/bytebufferpool v1.0.0 // indirect
-        golang.org/x/crypto v0.42.0 // indirect
-        golang.org/x/sync v0.17.0 // indirect
-        golang.org/x/sys v0.36.0 // indirect
-        lukechampine.com/uint128 v1.3.0 // indirect
+	git.gammaspectra.live/P2Pool/edwards25519 v0.0.0-20250621105958-76afb56a7fa0 // indirect
+	git.gammaspectra.live/P2Pool/go-randomx/v4 v4.2.1 // indirect
+	git.gammaspectra.live/P2Pool/randomx-go-bindings v1.0.0 // indirect
+	git.gammaspectra.live/P2Pool/sha3 v0.17.0 // indirect
+	git.gammaspectra.live/P2Pool/softfloat64 v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+	github.com/jxskiss/base62 v1.1.0 // indirect
+	github.com/lib/pq v1.10.9 // indirect
+	github.com/mazznoer/csscolorparser v0.1.6 // indirect
+	github.com/redis/go-redis/v9 v9.17.2 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	golang.org/x/crypto v0.42.0 // indirect
+	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
+	lukechampine.com/uint128 v1.3.0 // indirect
 )
 
 replace git.gammaspectra.live/P2Pool/consensus/v4 => ./consensus
