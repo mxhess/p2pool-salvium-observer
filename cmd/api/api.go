@@ -9,13 +9,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	_ "net/http/pprof"
 	"net/netip"
 	"net/url"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -29,6 +27,7 @@ import (
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/crypto"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/transaction"
 	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
+	p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/types"
 	"git.gammaspectra.live/P2Pool/consensus/v4/types"
 	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
 	p2poolapi "git.gammaspectra.live/P2Pool/observer-cmd-utils/api"
@@ -40,20 +39,23 @@ import (
 	fasthex "github.com/tmthrgd/go-hex"
 )
 
-// Redis data structures matching daemon2 output
+// Redis data structures matching daemon output
 type ShareDataRedis struct {
-	TemplateId      string `json:"template_id"`
-	SideHeight      uint64 `json:"side_height"`
-	MainHeight      uint64 `json:"main_height"`
-	MainId          string `json:"main_id"`
-	Timestamp       uint64 `json:"timestamp"`
-	Difficulty      uint64 `json:"difficulty"`
-	MinerAddress    string `json:"miner_address"`
-	SoftwareId      uint32 `json:"software_id"`
-	SoftwareVersion uint32 `json:"software_version"`
-	UncleOf         string `json:"uncle_of,omitempty"`
-	IsOrphan        bool   `json:"is_orphan"`
-	WindowWeight    uint64 `json:"window_weight"`
+	TemplateId           string   `json:"template_id"`
+	SideHeight           uint64   `json:"side_height"`
+	MainHeight           uint64   `json:"main_height"`
+	MainId               string   `json:"main_id"`
+	Timestamp            uint64   `json:"timestamp"`
+	Difficulty           uint64   `json:"difficulty"`
+	CumulativeDifficulty string   `json:"cumulative_difficulty"` // Stored as string (big int)
+	Parent               string   `json:"parent"`                // Parent template ID
+	Uncles               []string `json:"uncles,omitempty"`      // Uncle template IDs
+	MinerAddress         string   `json:"miner_address"`
+	SoftwareId           uint32   `json:"software_id"`
+	SoftwareVersion      uint32   `json:"software_version"`
+	UncleOf              string   `json:"uncle_of,omitempty"`
+	IsOrphan             bool     `json:"is_orphan"`
+	WindowWeight         uint64   `json:"window_weight"`
 }
 
 type FoundBlockDataRedis struct {
@@ -444,6 +446,33 @@ func getSideBlocksByUncleOf(ctx context.Context, rdb *redis.Client, uncleHash st
 	return blocks, nil
 }
 
+// Get the current sidechain tip (highest block)
+func getSideBlockTip(ctx context.Context, rdb *redis.Client) (*index.SideBlock, error) {
+	// Get current sidechain height from stats
+	heightKey := "stats:sidechain:height"
+	height, err := getRedisUint64(ctx, rdb, heightKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the tip block at this height
+	tipShare, err := getTipSideBlockByHeight(ctx, rdb, height)
+	if err != nil {
+		return nil, err
+	}
+
+	return shareDataToSideBlock(tipShare), nil
+}
+
+// Get the latest found block
+func getLatestFoundBlock(ctx context.Context, rdb *redis.Client) (*index.FoundBlock, error) {
+	blocks, err := getFoundBlocksWithFilter(ctx, rdb, "", 1)
+	if err != nil || len(blocks) == 0 {
+		return nil, err
+	}
+	return foundBlockDataToFoundBlock(blocks[0]), nil
+}
+
 // ============================================================================
 // Found Block Retrieval Functions
 // ============================================================================
@@ -653,6 +682,86 @@ func deleteMinerWebhookRedis(ctx context.Context, rdb *redis.Client, minerAddr s
 	return rdb.Set(ctx, key, string(data), 0).Err()
 }
 
+// Conversion Functions: ShareDataRedis -> index.SideBlock
+func shareDataToSideBlock(share *ShareDataRedis) *index.SideBlock {
+	if share == nil {
+		return nil
+	}
+
+	templateId, _ := types.HashFromString(share.TemplateId)
+	mainId, _ := types.HashFromString(share.MainId)
+	uncleOf, _ := types.HashFromString(share.UncleOf)
+
+	// Parse miner address
+	var minerAddr *address.Address
+	if addr := address.FromBase58(share.MinerAddress); addr != nil {
+		minerAddr = addr
+	}
+
+	block := &index.SideBlock{
+		TemplateId:       templateId,
+		SideHeight:       share.SideHeight,
+		MainHeight:       share.MainHeight,
+		MainId:           mainId,
+		Timestamp:        share.Timestamp,
+		Difficulty:       share.Difficulty,
+		Miner:            0, // Numeric ID not used in Redis mode
+		MinerAddress:     minerAddr,
+		MinerAlias:       "", // Aliases not yet supported in Redis mode
+		SoftwareId:       p2pooltypes.SoftwareId(share.SoftwareId),
+		SoftwareVersion:  p2pooltypes.SoftwareVersion(share.SoftwareVersion),
+		UncleOf:          uncleOf,
+		Inclusion:        index.InclusionInVerifiedChain, // Assume verified since it's in Redis
+		EffectiveHeight:  share.SideHeight,              // TODO: Calculate properly
+		WindowOutputs:    uint32(share.WindowWeight),    // Convert to uint32
+	}
+
+	return block
+}
+
+// Convert multiple ShareDataRedis to index.SideBlock slice
+func sharesToSideBlocks(shares []*ShareDataRedis) []*index.SideBlock {
+	result := make([]*index.SideBlock, len(shares))
+	for i, share := range shares {
+		result[i] = shareDataToSideBlock(share)
+	}
+	return result
+}
+
+// Conversion Functions: FoundBlockDataRedis -> index.FoundBlock
+func foundBlockDataToFoundBlock(fb *FoundBlockDataRedis) *index.FoundBlock {
+	if fb == nil {
+		return nil
+	}
+
+	mainId, _ := types.HashFromString(fb.MainId)
+	// Note: TemplateId from Redis not currently used
+	// templateId, _ := types.HashFromString(fb.TemplateId)
+
+	// Parse miner address
+	var minerAddr *address.Address
+	if addr := address.FromBase58(fb.MinerAddress); addr != nil {
+		minerAddr = addr
+	}
+
+	block := &index.FoundBlock{
+		MainBlock: index.MainBlock{
+			Id:         mainId,
+			Height:     fb.MainHeight,
+			Timestamp:  fb.Timestamp,
+			Reward:     fb.Reward,
+			Difficulty: fb.Difficulty,
+		},
+		SideHeight:   fb.SideHeight,
+		Miner:        0, // Numeric ID not used in Redis mode
+		MinerAddress: minerAddr,
+		MinerAlias:   "", // Aliases not yet supported
+		// Note: TemplateId and UncleCount may not be in index.FoundBlock
+	}
+
+	return block
+}
+
 func main() {
 	torHost := os.Getenv("TOR_SERVICE_ADDRESS")
 	moneroHost := flag.String("host", "127.0.0.1", "IP address of your Monero node")
@@ -697,11 +806,13 @@ func main() {
 	if err != nil {
 		utils.Panic(err)
 	}
-	defer indexDb.Close()
+	// defer indexDb.Close() // TODO: Remove indexDb entirely
 	defer rdb.Close()
 
 	var lastPoolInfo atomic.Pointer[cmdutils.PoolInfoResult]
 
+	// DISABLED: Function not used in Redis mode (coinbase outputs are disabled)
+	/*
 	fillMainCoinbaseOutputs := func(params url.Values, outputs index.MainCoinbaseOutputs) (result index.MainCoinbaseOutputs) {
 		result = make(index.MainCoinbaseOutputs, 0, len(outputs))
 		fillMiner := !params.Has("noMiner")
@@ -716,28 +827,30 @@ func main() {
 		}
 		return result
 	}
+	*/
 
 	fillFoundBlockResult := func(fillMiner bool, foundBlock *index.FoundBlock) (result *index.FoundBlock) {
-		if fillMiner {
-			miner := indexDb.GetMiner(foundBlock.Miner)
-			foundBlock.MinerAddress = miner.Address()
-			foundBlock.MinerPayoutAddress = miner.OnlyPayoutAddress()
-			foundBlock.MinerAlias = miner.Alias()
-		}
+		// In Redis mode, MinerAddress is already populated from foundBlockDataToFoundBlock()
+		// Aliases and payout addresses are not supported in Redis-only mode
 		return foundBlock
 	}
 
 	fillSideBlockResult := func(fillUncles, fillMined, fillMiner bool, sideBlock *index.SideBlock) *index.SideBlock {
-		if fillMiner {
-			miner := indexDb.GetMiner(sideBlock.Miner)
-			sideBlock.MinerAddress = miner.Address()
-			sideBlock.MinerPayoutAddress = miner.OnlyPayoutAddress()
-			sideBlock.MinerAlias = miner.Alias()
+		// Note: MinerAddress should already be populated from Redis data
+		// Miner lookups for alias/payout address are not supported in Redis-only mode
+		if fillMiner && sideBlock.MinerAddress == nil {
+			// Only try lookup if address is not already set
+			// In Redis mode, this should not happen
+			if sideBlock.Miner != 0 {
+				// This code path is for legacy compatibility only
+				// TODO: Remove once fully migrated to Redis
+			}
 		}
 		if fillMined {
-			mainTipAtHeight := indexDb.GetMainBlockByHeight(sideBlock.MainHeight)
-			if mainTipAtHeight != nil {
-				sideBlock.MinedMainAtHeight = mainTipAtHeight.Id == sideBlock.MainId
+			mainTipAtHeight, err := getMainBlockByHeight(ctx, rdb, sideBlock.MainHeight)
+			if err == nil && mainTipAtHeight != nil {
+				mainIdHash, _ := types.HashFromString(mainTipAtHeight.Id)
+				sideBlock.MinedMainAtHeight = mainIdHash == sideBlock.MainId
 				sideBlock.MainDifficulty = mainTipAtHeight.Difficulty
 			} else {
 				poolInfo := lastPoolInfo.Load()
@@ -749,15 +862,19 @@ func main() {
 			}
 		}
 		if fillUncles {
-			index.QueryIterate(indexDb.GetSideBlocksByUncleOfId(sideBlock.TemplateId), func(_ int, u *index.SideBlock) (stop bool) {
-				sideBlock.Uncles = append(sideBlock.Uncles, index.SideBlockUncleEntry{
-					TemplateId: u.TemplateId,
-					Miner:      u.Miner,
-					SideHeight: u.SideHeight,
-					Difficulty: u.Difficulty,
-				})
-				return false
-			})
+			// Get blocks that have this block as an uncle
+			uncles, err := getSideBlocksByUncleOf(ctx, rdb, sideBlock.TemplateId.String())
+			if err == nil {
+				for _, u := range uncles {
+					templateId, _ := types.HashFromString(u.TemplateId)
+					sideBlock.Uncles = append(sideBlock.Uncles, index.SideBlockUncleEntry{
+						TemplateId: templateId,
+						Miner:      0, // Numeric miner ID not used in Redis mode
+						SideHeight: u.SideHeight,
+						Difficulty: u.Difficulty,
+					})
+				}
+			}
 		}
 		return sideBlock
 	}
@@ -784,7 +901,11 @@ func main() {
 
 		oldPoolInfo := lastPoolInfo.Load()
 
-		tip := indexDb.GetSideBlockTip()
+		tip, err := getSideBlockTip(ctx, rdb)
+		if err != nil || tip == nil {
+			utils.Logf("API", "Failed to get sidechain tip from Redis: %v", err)
+			return
+		}
 
 		if oldPoolInfo != nil && oldPoolInfo.SideChain.LastBlock.TemplateId == tip.TemplateId {
 			//no changes!
@@ -799,72 +920,42 @@ func main() {
 		blockCount := 0
 		uncleCount := 0
 
-		miners := make(map[uint64]uint64)
+		// TODO: Implement Redis-based PPLNS window iteration
+		// This requires:
+		// 1. Query all shares in PPLNS window from Redis (last 2160 shares)
+		// 2. For each share, calculate weight using cumulative difficulty
+		// 3. Count unique miner addresses (not numeric IDs)
+		// 4. Aggregate software versions with their weights
+		miners := make(map[uint64]uint64)  // Empty for now - needs Redis implementation
+		versions := make([]cmdutils.SideChainVersionEntry, 0)  // Empty for now
+		var pplnsWeight types.Difficulty  // Zero for now
 
-		versions := make([]cmdutils.SideChainVersionEntry, 0)
+		// Temporarily skip PPLNS iteration until Redis implementation is complete
+		// Original code used: IterateSideBlocksInPPLNSWindowFast + GetDifficultyByHeight + GetMiner
+		bottom = tip  // Use tip as bottom for now
+		blockCount = 0
+		uncleCount = 0
+		bottomUncles = nil
 
-		var pplnsWeight types.Difficulty
-
-		if err := index.IterateSideBlocksInPPLNSWindowFast(indexDb, tip, indexDb.GetDifficultyByHeight, func(b *index.SideBlock, weight types.Difficulty) {
-			miners[indexDb.GetMiner(b.Miner).Id()]++
-			pplnsWeight = pplnsWeight.Add(weight)
-
-			if i := slices.IndexFunc(versions, func(entry cmdutils.SideChainVersionEntry) bool {
-				return entry.SoftwareId == b.SoftwareId && entry.SoftwareVersion == b.SoftwareVersion
-			}); i != -1 {
-				versions[i].Weight = versions[i].Weight.Add(weight)
-				versions[i].Count++
-			} else {
-				versions = append(versions, cmdutils.SideChainVersionEntry{
-					Weight:          weight,
-					Count:           1,
-					SoftwareId:      b.SoftwareId,
-					SoftwareVersion: b.SoftwareVersion,
-					SoftwareString:  fmt.Sprintf("%s %s", b.SoftwareId, b.SoftwareVersion.SoftwareAwareString(b.SoftwareId)),
-				})
-			}
-		}, func(slot index.SideBlockWindowSlot) {
-			blockCount++
-			bottomUncles = slot.Uncles
-			uncleCount += len(slot.Uncles)
-			bottom = slot.Block
-		}); err != nil {
-			utils.Errorf("", "error scanning PPLNS window: %s", err)
-
-			if oldPoolInfo != nil {
-				// got error, just update last pool
-
-				//this race is ok
-				oldPoolInfo.SideChain.SecondsSinceLastBlock = max(0, time.Now().Unix()-int64(tip.Timestamp))
-			}
-			return
-		}
-
-		slices.SortFunc(versions, func(a, b cmdutils.SideChainVersionEntry) int {
-			return a.Weight.Cmp(b.Weight) * -1
-		})
-
-		for i := range versions {
-			versions[i].Share = float64(versions[i].Weight.Mul64(100).Lo) / float64(pplnsWeight.Lo)
-		}
-
+		// TODO: Implement Redis-based total counts
+		// Count total found blocks from Redis sorted set
+		// Count unique miner addresses from Redis (not available yet - may need separate tracking)
 		type totalKnownResult struct {
 			blocksFound uint64
 			minersKnown uint64
 		}
 
-		totalKnown := cacheResult(CacheTotalKnownBlocksAndMiners, time.Minute, func() any {
-			result := &totalKnownResult{}
-			if err := indexDb.Query("SELECT (SELECT COUNT(*) FROM "+indexDb.GetView("found_main_blocks")+") as found, (SELECT COUNT(*) FROM miners) as miners;", func(row index.RowScanInterface) error {
-				return row.Scan(&result.blocksFound, &result.minersKnown)
-			}); err != nil {
-				return nil
-			}
+		totalKnown := &totalKnownResult{
+			blocksFound: 0,  // TODO: Count from redis:found_blocks:*
+			minersKnown: 0,  // TODO: Implement unique miner tracking in Redis
+		}
 
-			return result
-		}).(*totalKnownResult)
-
-		lastBlocksFound := index.QueryIterateToSlice(indexDb.GetFoundBlocks("", 201))
+		// Get last 201 found blocks from Redis
+		lastBlocksFoundRedis, _ := getFoundBlocksWithFilter(ctx, rdb, "", 201)
+		lastBlocksFound := make([]*index.FoundBlock, len(lastBlocksFoundRedis))
+		for i, fb := range lastBlocksFoundRedis {
+			lastBlocksFound[i] = foundBlockDataToFoundBlock(fb)
+		}
 
 		mainTip, err := getMainBlockTipRedis(ctx, rdb)
 		if err != nil {
@@ -1008,6 +1099,9 @@ func main() {
 		_ = httputils.EncodeJson(request, writer, lastPoolInfo.Load())
 	})
 
+	// DISABLED: PostgreSQL-only feature - detailed miner info with statistics not available in Redis mode
+	// TODO: Implement Redis-based miner statistics
+	/*
 	serveMux.HandleFunc("/api/miner_info/{miner:[^ ]+}", func(writer http.ResponseWriter, request *http.Request) {
 		minerId := mux.Vars(request)["miner"]
 		params := request.URL.Query()
@@ -1078,7 +1172,9 @@ func main() {
 		}
 
 		if lastShareTimestamp == 0 && lastShareHeight > 0 {
-			lastShareTimestamp = indexDb.GetTipSideBlockByHeight(lastShareHeight).Timestamp
+			if block, err := getTipSideBlockByHeight(ctx, rdb, lastShareHeight); err == nil && block != nil {
+				lastShareTimestamp = block.Timestamp
+			}
 		}
 
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -1100,7 +1196,10 @@ func main() {
 			LastShareTimestamp: lastShareTimestamp,
 		})
 	})
+	*/
 
+	// DISABLED: PostgreSQL-only feature - global output indices not available in Redis mode
+	/*
 	serveMux.HandleFunc("/api/global_indices_lookup", func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method != "POST" {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -1143,7 +1242,10 @@ func main() {
 		writer.WriteHeader(http.StatusOK)
 		_ = httputils.EncodeJson(request, writer, indexDb.QueryGlobalOutputIndices(indices))
 	})
+	*/
 
+	// DISABLED: PostgreSQL-only feature - sweep transactions not available in Redis mode
+	/*
 	serveMux.HandleFunc("/api/sweeps_by_spending_global_output_indices", func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method != "POST" {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -1186,6 +1288,7 @@ func main() {
 		writer.WriteHeader(http.StatusOK)
 		_ = httputils.EncodeJson(request, writer, indexDb.GetMainLikelySweepTransactionBySpendingGlobalOutputIndices(indices...))
 	})
+	*/
 
 	serveMux.HandleFunc("/api/transaction_lookup/{txid:[0-9a-f]+}", func(writer http.ResponseWriter, request *http.Request) {
 		txId, err := types.HashFromString(mux.Vars(request)["txid"])
@@ -1274,7 +1377,7 @@ func main() {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusOK)
 			for i, out := range outs {
-				if mb := indexDb.GetMainBlockByHeight(out.Height); mb != nil {
+				if mb, err := getMainBlockByHeight(ctx, rdb, out.Height); err == nil && mb != nil {
 					outs[i].Timestamp = mb.Timestamp
 				}
 			}
@@ -1289,57 +1392,56 @@ func main() {
 	})
 
 	serveMux.HandleFunc("/api/miner_webhooks/{miner:[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+}", func(writer http.ResponseWriter, request *http.Request) {
-		minerId := mux.Vars(request)["miner"]
-		miner := indexDb.GetMinerByStringAddress(minerId)
+		minerAddr := mux.Vars(request)["miner"]
 
-		if miner == nil {
+		// Validate address format
+		if addr := address.FromBase58(minerAddr); addr == nil {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusNotFound)
 			buf, _ := utils.MarshalJSON(struct {
 				Error string `json:"error"`
 			}{
-				Error: "miner_not_found",
+				Error: "invalid_address",
 			})
 			_, _ = writer.Write(buf)
 			return
 		}
 
-		wh, _ := indexDb.GetMinerWebHooks(miner.Id())
-		defer wh.Close()
-		_ = httputils.StreamJsonIterator(request, writer, func() (int, *index.MinerWebHook) {
-			i, w := wh.Next()
-			if w == nil {
-				return 0, nil
-			}
+		// Get webhooks from Redis
+		webhooks, err := getMinerWebhooksRedis(ctx, rdb, minerAddr)
+		if err != nil {
+			utils.Errorf("API", "Error getting webhooks: %v", err)
+			webhooks = []MinerWebhookRedis{}
+		}
 
-			newHook := &index.MinerWebHook{
-				Miner: w.Miner,
-				Type:  w.Type,
+		// Convert to index.MinerWebHook format and sanitize
+		result := make([]*index.MinerWebHook, len(webhooks))
+		for i, w := range webhooks {
+			result[i] = &index.MinerWebHook{
+				Miner: 0, // Numeric ID not used in Redis mode
+				Type:  index.WebHookType(w.Type),
+				// Sanitize private data by hashing
+				Url: types.Hash(sha256.Sum256([]byte(w.URL))).String(),
 			}
-			// Sanitize private data by hashing
-			newHook.Url = types.Hash(sha256.Sum256([]byte(w.Url))).String()
-			settings := make(map[string]string)
-			for k, v := range w.Settings {
-				if strings.HasPrefix(k, "send_") {
-					settings[k] = v
-				}
-			}
-			newHook.Settings = settings
-			return i, newHook
-		})
+		}
+
+		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		writer.WriteHeader(http.StatusOK)
+		_ = httputils.EncodeJson(request, writer, result)
 	})
 
 	serveMux.HandleFunc("/api/miner_signed_action/{miner:[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+}", func(writer http.ResponseWriter, request *http.Request) {
-		minerId := mux.Vars(request)["miner"]
-		miner := indexDb.GetMinerByStringAddress(minerId)
+		minerAddr := mux.Vars(request)["miner"]
 
+		// Validate and parse address
+		miner := address.FromBase58(minerAddr)
 		if miner == nil {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusNotFound)
 			buf, _ := utils.MarshalJSON(struct {
 				Error string `json:"error"`
 			}{
-				Error: "miner_not_found",
+				Error: "invalid_address",
 			})
 			_, _ = writer.Write(buf)
 			return
@@ -1372,7 +1474,8 @@ func main() {
 			return
 		}
 
-		result := signedAction.VerifyFallbackToZero(os.Getenv("NET_SERVICE_ADDRESS"), miner.PayoutAddress(), sig)
+		// In Redis mode, miner address is the payout address
+		result := signedAction.VerifyFallbackToZero(os.Getenv("NET_SERVICE_ADDRESS"), miner, sig)
 		if result == address.ResultFail {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusUnauthorized)
@@ -1441,7 +1544,7 @@ func main() {
 				}
 
 				// Use Redis for alias storage
-				if err := setMinerAlias(ctx, rdb, minerId, newAlias); err != nil {
+				if err := setMinerAlias(ctx, rdb, minerAddr, newAlias); err != nil {
 					writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 					writer.WriteHeader(http.StatusBadRequest)
 					buf, _ := utils.MarshalJSON(struct {
@@ -1481,7 +1584,7 @@ func main() {
 			}
 
 			// Use Redis to delete alias
-			if err := setMinerAlias(ctx, rdb, minerId, ""); err != nil {
+			if err := setMinerAlias(ctx, rdb, minerAddr, ""); err != nil {
 				writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 				writer.WriteHeader(http.StatusBadRequest)
 				buf, _ := utils.MarshalJSON(struct {
@@ -1500,7 +1603,7 @@ func main() {
 			whType, _ := signedAction.Get("type")
 			whUrl, _ := signedAction.Get("url")
 			wh := &index.MinerWebHook{
-				Miner:    miner.Id(),
+				Miner:    0, // Numeric ID not used in Redis mode
 				Type:     index.WebHookType(whType),
 				Url:      whUrl,
 				Settings: make(map[string]string),
@@ -1530,7 +1633,7 @@ func main() {
 				URL:      whUrl,
 				Settings: wh.Settings,
 			}
-			err = setMinerWebhookRedis(ctx, rdb, minerId, redisWebhook)
+			err = setMinerWebhookRedis(ctx, rdb, minerAddr, redisWebhook)
 			if err != nil {
 				writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 				writer.WriteHeader(http.StatusBadRequest)
@@ -1561,7 +1664,7 @@ func main() {
 			}
 
 			// Get webhooks from Redis
-			webhooks, err := getMinerWebhooksRedis(ctx, rdb, minerId)
+			webhooks, err := getMinerWebhooksRedis(ctx, rdb, minerAddr)
 			if err != nil {
 				writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 				writer.WriteHeader(http.StatusBadRequest)
@@ -1577,7 +1680,7 @@ func main() {
 			// Find and delete matching webhook
 			for _, wh := range webhooks {
 				if wh.Type == urlType && types.Hash(sha256.Sum256([]byte(wh.URL))).String() == urlHash {
-					_ = deleteMinerWebhookRedis(ctx, rdb, minerId, wh.Type)
+					_ = deleteMinerWebhookRedis(ctx, rdb, minerAddr, wh.Type)
 				}
 			}
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -1596,6 +1699,9 @@ func main() {
 		}
 	})
 
+	// DISABLED: PostgreSQL-only feature - side blocks in window not available in Redis mode
+	// TODO: Implement using multiple Redis queries (ZRANGEBYSCORE on sidechain:height:* keys)
+	/*
 	serveMux.HandleFunc("/api/side_blocks_in_window", func(writer http.ResponseWriter, request *http.Request) {
 		params := request.URL.Query()
 
@@ -1644,7 +1750,11 @@ func main() {
 			return i, v
 		})
 	})
+	*/
 
+	// DISABLED: PostgreSQL-only feature - side blocks by miner in window not available in Redis mode
+	// TODO: Implement Redis-based query for miner's shares in window
+	/*
 	serveMux.HandleFunc("/api/side_blocks_in_window/{miner:[0-9]+|[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$}", func(writer http.ResponseWriter, request *http.Request) {
 		minerId := mux.Vars(request)["miner"]
 		var miner *index.Miner
@@ -1717,7 +1827,10 @@ func main() {
 			return i, v
 		})
 	})
+	*/
 
+	// DISABLED: PostgreSQL-only feature - sweep transactions not available in Redis mode
+	/*
 	serveMux.HandleFunc("/api/sweeps", func(writer http.ResponseWriter, request *http.Request) {
 
 		params := request.URL.Query()
@@ -1792,7 +1905,11 @@ func main() {
 		defer result.Close()
 		_ = httputils.StreamJsonIterator(request, writer, result.Next)
 	})
+	*/
 
+	// DISABLED: PostgreSQL-only feature - payouts by miner not available in Redis mode
+	// TODO: Implement Redis-based payout tracking
+	/*
 	serveMux.HandleFunc("/api/payouts/{miner:[0-9]+|[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$}", func(writer http.ResponseWriter, request *http.Request) {
 		minerId := mux.Vars(request)["miner"]
 		var miner *index.Miner
@@ -1863,6 +1980,7 @@ func main() {
 		defer result.Close()
 		_ = httputils.StreamJsonIterator(request, writer, result.Next)
 	})
+	*/
 
 	serveMux.HandleFunc("/api/redirect/block/{main_height:[0-9]+|.?[0-9A-Za-z]+$}", func(writer http.ResponseWriter, request *http.Request) {
 		http.Redirect(writer, request, fmt.Sprintf("%s/explorer/block/%d", cmdutils.GetSiteUrl(cmdutils.SiteKeyP2PoolIo, request.Host == torHost), cmdutils.DecodeBinaryNumber(mux.Vars(request)["main_height"])), http.StatusFound)
@@ -1876,6 +1994,8 @@ func main() {
 
 		http.Redirect(writer, request, fmt.Sprintf("%s/explorer/tx/%s", cmdutils.GetSiteUrl(cmdutils.SiteKeyP2PoolIo, request.Host == torHost), txId), http.StatusFound)
 	})
+	// DISABLED: PostgreSQL-only feature - coinbase redirect not available in Redis mode
+	/*
 	serveMux.HandleFunc("/api/redirect/coinbase/{coinbase:[0-9]+|.?[0-9A-Za-z]+$}", func(writer http.ResponseWriter, request *http.Request) {
 		foundTarget := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE side_height = $1 AND reward > 0", 1, cmdutils.DecodeBinaryNumber(mux.Vars(request)["coinbase"])))
 		if foundTarget == nil {
@@ -1892,6 +2012,9 @@ func main() {
 
 		http.Redirect(writer, request, fmt.Sprintf("%s/explorer/tx/%s", cmdutils.GetSiteUrl(cmdutils.SiteKeyP2PoolIo, request.Host == torHost), foundTarget.MainBlock.Id.String()), http.StatusFound)
 	})
+	*/
+	// DISABLED: PostgreSQL-only feature - share redirect not available in Redis mode
+	/*
 	serveMux.HandleFunc("/api/redirect/share/{height:[0-9]+|.?[0-9A-Za-z]+$}", func(writer http.ResponseWriter, request *http.Request) {
 		c := cmdutils.DecodeBinaryNumber(mux.Vars(request)["height"])
 
@@ -1932,7 +2055,10 @@ func main() {
 
 		http.Redirect(writer, request, fmt.Sprintf("/share/%s", b.TemplateId.String()), http.StatusFound)
 	})
+	*/
 
+	// DISABLED: PostgreSQL-only feature - coinbase output proof redirects not available in Redis mode
+	/*
 	serveMux.HandleFunc("/api/redirect/prove/{height_index:[0-9]+|.[0-9A-Za-z]+}", func(writer http.ResponseWriter, request *http.Request) {
 		i := cmdutils.DecodeBinaryNumber(mux.Vars(request)["height_index"])
 		n := uint64(math.Ceil(math.Log2(float64(consensus.ChainWindowSize * 4))))
@@ -1992,7 +2118,10 @@ func main() {
 
 		http.Redirect(writer, request, fmt.Sprintf("/proof/%s/%d", b.MainBlock.Id.String(), tx.Index), http.StatusFound)
 	})
+	*/
 
+	// DISABLED: PostgreSQL-only feature - numeric miner ID redirect not available in Redis mode
+	/*
 	serveMux.HandleFunc("/api/redirect/miner/{miner:[0-9]+|.?[0-9A-Za-z]+}", func(writer http.ResponseWriter, request *http.Request) {
 		miner := indexDb.GetMiner(cmdutils.DecodeBinaryNumber(mux.Vars(request)["miner"]))
 		if miner == nil {
@@ -2009,8 +2138,11 @@ func main() {
 
 		http.Redirect(writer, request, fmt.Sprintf("/miner/%s", miner.PayoutAddress().ToBase58()), http.StatusFound)
 	})
+	*/
 
 	//other redirects
+	// DISABLED: PostgreSQL-only feature - last_found redirect not available in Redis mode
+	/*
 	serveMux.HandleFunc("/api/redirect/last_found{kind:|/full|/light|/raw|/blob|/info|/payouts|/coinbase}", func(writer http.ResponseWriter, request *http.Request) {
 		b := index.QueryFirstResult(indexDb.GetFoundBlocks("WHERE reward > 0", 1))
 		if b == nil {
@@ -2019,6 +2151,7 @@ func main() {
 		}
 		http.Redirect(writer, request, fmt.Sprintf("/api/block_by_id/%s%s?%s", b.MainBlock.SideTemplateId.String(), mux.Vars(request)["kind"], request.URL.RawQuery), http.StatusFound)
 	})
+	*/
 	serveMux.HandleFunc("/api/redirect/tip{kind:|/full|/light|/raw|/blob|/info|/payouts|/coinbase}", func(writer http.ResponseWriter, request *http.Request) {
 		tip := getSideBlockTipRedis(ctx, rdb)
 		if tip == nil {
@@ -2039,35 +2172,25 @@ func main() {
 			}
 		}
 
-		var minerId uint64
+		var minerAddress string
 
 		if params.Has("miner") {
 			id := params.Get("miner")
-			var miner *index.Miner
-
+			// In Redis mode, we only support address-based lookups
 			if len(id) > 10 && (id[0] == '4' || id[0] == '8') {
-				miner = indexDb.GetMinerByStringAddress(id)
-			}
-
-			if miner == nil {
-				if i, err := strconv.Atoi(id); err == nil {
-					miner = indexDb.GetMiner(uint64(i))
-				}
-			}
-
-			if miner == nil {
+				minerAddress = id
+			} else {
+				// Numeric miner IDs not supported in Redis mode
 				writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-				writer.WriteHeader(http.StatusNotFound)
+				writer.WriteHeader(http.StatusBadRequest)
 				buf, _ := utils.MarshalJSON(struct {
 					Error string `json:"error"`
 				}{
-					Error: "not_found",
+					Error: "numeric_miner_id_not_supported",
 				})
 				_, _ = writer.Write(buf)
 				return
 			}
-
-			minerId = miner.Id()
 		}
 
 		if limit > 1000 {
@@ -2081,30 +2204,35 @@ func main() {
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 		writer.WriteHeader(http.StatusOK)
 
-		var result index.QueryIterator[index.FoundBlock]
-		var err error
+		// Get found blocks from Redis
+		foundBlocksRedis, err := getFoundBlocksWithFilter(ctx, rdb, minerAddress, int(limit))
+		if err != nil {
+			utils.Errorf("API", "Error getting found blocks from Redis: %v", err)
+			foundBlocksRedis = []*FoundBlockDataRedis{} // Return empty on error
+		}
 
-		if minerId != 0 {
-			result, err = indexDb.GetFoundBlocks("WHERE miner = $1", limit, minerId)
-		} else {
-			result, err = indexDb.GetFoundBlocks("", limit)
+		// Convert to index.FoundBlock slice
+		result := make([]*index.FoundBlock, len(foundBlocksRedis))
+		for i, fb := range foundBlocksRedis {
+			result[i] = foundBlockDataToFoundBlock(fb)
 		}
 
 		fillMiner := !params.Has("noMiner")
 
-		if err != nil {
-			panic(err)
-		}
-		defer result.Close()
-		_ = httputils.StreamJsonIterator(request, writer, func() (int, *index.FoundBlock) {
-			i, v := result.Next()
-			if v != nil {
-				v = fillFoundBlockResult(fillMiner, v)
+		// Fill miner info if requested (already populated from Redis)
+		if fillMiner {
+			for _, v := range result {
+				// MinerAddress already populated from Redis, no additional lookup needed
+				_ = v // fillFoundBlockResult not needed, address already set
 			}
-			return i, v
-		})
+		}
+
+		// Stream JSON output
+		_ = httputils.EncodeJson(request, writer, result)
 	})
 
+	// DISABLED: PostgreSQL-only feature - /api/side_blocks superseded by /api/shares (Redis-based)
+	/*
 	serveMux.HandleFunc("/api/side_blocks", func(writer http.ResponseWriter, request *http.Request) {
 
 		params := request.URL.Query()
@@ -2182,6 +2310,7 @@ func main() {
 			return i, v
 		})
 	})
+	*/
 
 	serveMux.HandleFunc("/api/shares", func(writer http.ResponseWriter, request *http.Request) {
 
@@ -2203,35 +2332,25 @@ func main() {
 
 		onlyBlocks := params.Has("onlyBlocks")
 
-		var minerId uint64
+		var minerAddress string
 
 		if params.Has("miner") {
 			id := params.Get("miner")
-			var miner *index.Miner
-
+			// In Redis mode, we only support address-based lookups
 			if len(id) > 10 && (id[0] == '4' || id[0] == '8') {
-				miner = indexDb.GetMinerByStringAddress(id)
-			}
-
-			if miner == nil {
-				if i, err := strconv.Atoi(id); err == nil {
-					miner = indexDb.GetMiner(uint64(i))
-				}
-			}
-
-			if miner == nil {
+				minerAddress = id
+			} else {
+				// Numeric miner IDs not supported in Redis mode
 				writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-				writer.WriteHeader(http.StatusNotFound)
+				writer.WriteHeader(http.StatusBadRequest)
 				buf, _ := utils.MarshalJSON(struct {
 					Error string `json:"error"`
 				}{
-					Error: "not_found",
+					Error: "numeric_miner_id_not_supported",
 				})
 				_, _ = writer.Write(buf)
 				return
 			}
-
-			minerId = miner.Id()
 		}
 
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -2241,38 +2360,43 @@ func main() {
 		fillMined := !params.Has("noMainStatus")
 		fillMiner := !params.Has("noMiner")
 
-		result, err := indexDb.GetShares(limit, minerId, onlyBlocks, index.InclusionInVerifiedChain)
+		// Get shares from Redis
+		sharesRedis, err := getSharesFiltered(ctx, rdb, int(limit), minerAddress, onlyBlocks)
 		if err != nil {
-			panic(err)
+			utils.Errorf("API", "Error getting shares from Redis: %v", err)
+			sharesRedis = []*ShareDataRedis{} // Return empty on error
 		}
-		defer result.Close()
-		_ = httputils.StreamJsonIterator(request, writer, func() (int, *index.SideBlock) {
-			i, v := result.Next()
+
+		// Convert to index.SideBlock slice
+		result := sharesToSideBlocks(sharesRedis)
+
+		// Apply fill options
+		for _, v := range result {
 			if v != nil {
-				v = fillSideBlockResult(fillUncles, fillMined, fillMiner, v)
+				fillSideBlockResult(fillUncles, fillMined, fillMiner, v)
 			}
-			return i, v
-		})
+		}
+
+		// Stream JSON output
+		_ = httputils.EncodeJson(request, writer, result)
 	})
 
 	serveMux.HandleFunc("/api/main_block_by_{by:id|height}/{block:[0-9a-f]+|[0-9]+}", func(writer http.ResponseWriter, request *http.Request) {
 
-		var block *index.MainBlock
+		var mainBlockData *MainBlockData
+		var err error
+
 		if mux.Vars(request)["by"] == "id" {
 			if id, err := types.HashFromString(mux.Vars(request)["block"]); err == nil {
-				if b := indexDb.GetMainBlockById(id); b != nil {
-					block = b
-				}
+				mainBlockData, err = getMainBlockById(ctx, rdb, id.String())
 			}
 		} else if mux.Vars(request)["by"] == "height" {
 			if height, err := strconv.ParseUint(mux.Vars(request)["block"], 10, 0); err == nil {
-				if b := indexDb.GetMainBlockByHeight(height); b != nil {
-					block = b
-				}
+				mainBlockData, err = getMainBlockByHeight(ctx, rdb, height)
 			}
 		}
 
-		if block == nil {
+		if err != nil || mainBlockData == nil {
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusNotFound)
 			buf, _ := utils.MarshalJSON(struct {
@@ -2284,6 +2408,17 @@ func main() {
 			return
 		}
 
+		// Convert to index.MainBlock format
+		block := &index.MainBlock{
+			Id:         types.Hash{},
+			Height:     mainBlockData.Height,
+			Timestamp:  mainBlockData.Timestamp,
+			Reward:     mainBlockData.Reward,
+			Difficulty: mainBlockData.Difficulty,
+		}
+		blockId, _ := types.HashFromString(mainBlockData.Id)
+		block.Id = blockId
+
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 		writer.WriteHeader(http.StatusOK)
 		_ = httputils.EncodeJson(request, writer, block)
@@ -2294,7 +2429,7 @@ func main() {
 		var difficulty types.Difficulty
 		if mux.Vars(request)["by"] == "id" {
 			if id, err := types.HashFromString(mux.Vars(request)["block"]); err == nil {
-				if b := indexDb.GetMainBlockById(id); b != nil {
+				if b, err := getMainBlockById(ctx, rdb, id.String()); err == nil && b != nil {
 					difficulty = types.DifficultyFrom64(b.Difficulty)
 				} else if header := p2api.MainHeaderById(id); header != nil && !header.Difficulty.IsZero() {
 					difficulty = header.Difficulty
@@ -2302,7 +2437,7 @@ func main() {
 			}
 		} else if mux.Vars(request)["by"] == "height" {
 			if height, err := strconv.ParseUint(mux.Vars(request)["block"], 10, 0); err == nil {
-				if b := indexDb.GetMainBlockByHeight(height); b != nil {
+				if b, err := getMainBlockByHeight(ctx, rdb, height); err == nil && b != nil {
 					difficulty = types.DifficultyFrom64(b.Difficulty)
 				} else if diff := p2api.MainDifficultyByHeight(height); !diff.IsZero() {
 					difficulty = diff
@@ -2324,22 +2459,19 @@ func main() {
 		var sideBlock *index.SideBlock
 		if mux.Vars(request)["by"] == "id" {
 			if id, err := types.HashFromString(blockId); err == nil {
-				if b := indexDb.GetSideBlockByMainId(id); b != nil {
-					sideBlock = b
-				} else if b = indexDb.GetTipSideBlockByTemplateId(id); b != nil {
-					sideBlock = b
-				} else if bs := index.QueryIterateToSlice(indexDb.GetSideBlocksByTemplateId(id)); len(bs) != 0 {
-					sideBlock = bs[0]
-				} else if mb := indexDb.GetMainBlockByCoinbaseId(id); mb != nil {
-					if b = indexDb.GetSideBlockByMainId(mb.Id); b != nil {
-						sideBlock = b
-					}
+				// Try lookup by main ID
+				if shareRedis, err := getSideBlockByMainId(ctx, rdb, id.String()); err == nil && shareRedis != nil {
+					sideBlock = shareDataToSideBlock(shareRedis)
+				} else if shareRedis, err := getSideBlockByTemplateId(ctx, rdb, id.String()); err == nil && shareRedis != nil {
+					// Try lookup by template ID
+					sideBlock = shareDataToSideBlock(shareRedis)
 				}
+				// Note: Coinbase ID lookup not supported in Redis mode
 			}
 		} else if mux.Vars(request)["by"] == "height" {
 			if height, err := strconv.ParseUint(blockId, 10, 0); err == nil {
-				if b := indexDb.GetTipSideBlockByHeight(height); b != nil {
-					sideBlock = b
+				if shareRedis, err := getTipSideBlockByHeight(ctx, rdb, height); err == nil && shareRedis != nil {
+					sideBlock = shareDataToSideBlock(shareRedis)
 				}
 			}
 		}
@@ -2385,7 +2517,8 @@ func main() {
 				}, func() (outputs transaction.Outputs, bottomHeight uint64, err error) {
 					preAllocatedShares := sidechain.PreAllocateShares(consensus.ChainWindowSize * 2)
 					preAllocatedRewards := make([]uint64, 0, len(preAllocatedShares))
-					return Outputs(p2api, indexDb, sideBlock, indexDb.DerivationCache(), preAllocatedShares, preAllocatedRewards)
+					// DerivationCache not available in Redis mode - pass nil
+					return Outputs(p2api, indexDb, sideBlock, nil, preAllocatedShares, preAllocatedRewards)
 				}); err != nil {
 					writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 					writer.WriteHeader(http.StatusNotFound)
@@ -2416,6 +2549,8 @@ func main() {
 				writer.WriteHeader(http.StatusOK)
 				_ = httputils.EncodeJson(request, writer, raw)
 			}
+		// DISABLED: PostgreSQL-only feature - payouts not available in Redis mode
+		/*
 		case "/payouts":
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusOK)
@@ -2426,6 +2561,9 @@ func main() {
 			}
 			defer result.Close()
 			_ = httputils.StreamJsonIterator(request, writer, result.Next)
+		*/
+		// DISABLED: PostgreSQL-only feature - coinbase outputs not available in Redis mode
+		/*
 		case "/coinbase":
 			foundBlock := indexDb.GetMainBlockById(sideBlock.MainId)
 			if foundBlock == nil {
@@ -2492,6 +2630,7 @@ func main() {
 				defer mainOutputs.Close()
 				_ = httputils.EncodeJson(request, writer, fillMainCoinbaseOutputs(params, index.IterateToSliceWithoutPointer[index.MainCoinbaseOutput](mainOutputs)))
 			}
+		*/
 		default:
 			writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 			writer.WriteHeader(http.StatusOK)
@@ -2499,6 +2638,9 @@ func main() {
 		}
 	})
 
+	// DISABLED: PostgreSQL-only feature - historical statistics not available in Redis mode
+	// TODO: Implement Redis-based historical statistics using multiple lookups
+	/*
 	type difficultyStatResult struct {
 		Height                    uint64 `json:"height"`
 		Timestamp                 uint64 `json:"timestamp"`
@@ -2582,6 +2724,7 @@ func main() {
 			_ = httputils.StreamJsonChan(request, writer, result)
 		}
 	})
+	*/
 
 	// p2pool consensus server api
 	serveMux.HandleFunc("/api/consensus/peer_list", func(writer http.ResponseWriter, request *http.Request) {
@@ -2697,14 +2840,16 @@ func main() {
 
 		blocks := make([]poolBlock, 0, limit)
 
-		result, err := indexDb.GetFoundBlocks("", limit)
+		// Get found blocks from Redis
+		foundBlocksRedis, err := getFoundBlocksWithFilter(ctx, rdb, "", int(limit))
 		if err != nil {
 			panic(err)
 		}
 
 		poolInfo := lastPoolInfo.Load()
 
-		index.QueryIterate(result, func(_ int, b *index.FoundBlock) (stop bool) {
+		for _, fb := range foundBlocksRedis {
+			b := foundBlockDataToFoundBlock(fb)
 			b = fillFoundBlockResult(true, b)
 			blocks = append(blocks, poolBlock{
 				Height:      b.MainBlock.Height,
@@ -2719,8 +2864,7 @@ func main() {
 				Finder:      string(b.MinerAddress.ToBase58()),
 				TxKey:       b.MainBlock.CoinbasePrivateKey,
 			})
-			return false
-		})
+		}
 
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 		writer.WriteHeader(http.StatusOK)
@@ -2748,7 +2892,7 @@ func main() {
 		poolInfo := lastPoolInfo.Load()
 
 		var lastBlockFound, lastBlockFoundTime uint64
-		b := index.QueryFirstResult(indexDb.GetFoundBlocks("", 1))
+		b, _ := getLatestFoundBlock(ctx, rdb)
 		if b != nil {
 			lastBlockFound = b.MainBlock.Height
 			lastBlockFoundTime = b.MainBlock.Timestamp
@@ -2799,7 +2943,7 @@ func main() {
 		var lastBlockFound, lastBlockFoundTime uint64
 		var lastBlockFoundHash types.Hash
 		var lastBlockCumulativeDifficulty types.Difficulty
-		b := index.QueryFirstResult(indexDb.GetFoundBlocks("", 1))
+		b, _ := getLatestFoundBlock(ctx, rdb)
 		if b != nil {
 			lastBlockFound = b.MainBlock.Height
 			lastBlockFoundTime = b.MainBlock.Timestamp

@@ -13,7 +13,7 @@ WorkingDirectory=/opt/p2pool-observer
 
 # Main process
 # Example with 4 Salvium RPC endpoints (3 public seeds + 1 local):
-ExecStart=/opt/p2pool-observer/daemon2 \
+ExecStart=/opt/p2pool-observer/daemon \
   --salvium-rpc=http://127.0.0.1:19081,http://seed01.salvium.io:19081,http://seed02.salvium.io:19081,http://seed03.salvium.io:19081 \
   --data-api=/var/lib/p2pool/data-api \
   --cache=/var/lib/p2pool/p2pool.cache \
@@ -21,7 +21,7 @@ ExecStart=/opt/p2pool-observer/daemon2 \
   --full-mode
 
 # Alternative: Single endpoint (backward compatible)
-# ExecStart=/opt/p2pool-observer/daemon2 \
+# ExecStart=/opt/p2pool-observer/daemon \
 #   --host=127.0.0.1 \
 #   --rpc-port=19081 \
 #   --data-api=/var/lib/p2pool/data-api \
