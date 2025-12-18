@@ -27,7 +27,7 @@ pre {
     <div>
         <h2>API Documentation</h2>
         <p>This site and API is in development. As such, returned data could be different, or methods be deprecated / replaced anytime. Though it will be avoided if possible without affecting performance :)</p>
-        <p>All the data showed on this site comes from the API, P2Pool or Monero. So if new features are added on site, it's possible to do so via the API.</p>
+        <p>All the data showed on this site comes from the API, P2Pool or Salvium. So if new features are added on site, it's possible to do so via the API.</p>
         <p>At the moment there is no broad rate-limiting. If abuse is detected, temporary rate limits can be put in place. You can always run your own instance of this site / API / consensus, see <a href="{%s p.Context().GetUrl("git.gammaspectra.live") %}/P2Pool/observer">source code</a>.</p>
         <p>Some historical data could be incomplete. Some block records do not exist.</p>
         <p>In general, mandatory parameters are specified on the path, optional parameters on query.</p>
@@ -56,7 +56,7 @@ pre {
         <p>This value is encoded as 64 hexadecimal characters.</p>
 
         <h4>address.Address</h4>
-        <p>Represents a Monero address. Includes valid checksums.</p>
+        <p>Represents a Salvium address. Includes valid checksums.</p>
         <p>This value is encoded using special base58.</p>
 
         <h4>types.Difficulty</h4>
@@ -68,7 +68,7 @@ pre {
 
     <div>
         <h3 class="mono">/api/pool_info</h3>
-        <p>Response contains general information on the current status of the P2Pool sidechain and Monero network, release versions, and other parameters.</p>
+        <p>Response contains general information on the current status of the P2Pool sidechain and Salvium network, release versions, and other parameters.</p>
         <pre class="smaller">
 [Live result. Has been cut due to size, relevant portions shown]
 curl --silent https://{%s p.Context().NetServiceAddress %}/api/pool_info
@@ -80,7 +80,7 @@ curl --silent https://{%s p.Context().NetServiceAddress %}/api/pool_info
 
     <div>
         <h3 class="mono">/api/miner_info/&lt;id|address&gt;</h3>
-        <p>Response contains general information on a specific miner, referred by its internal <em>id</em> or known Monero <em>address</em>.</p>
+        <p>Response contains general information on a specific miner, referred by its internal <em>id</em> or known Salvium <em>address</em>.</p>
         <p>If you do not need the precise count of shares please pass the <em>?shareEstimates</em> parameter.</p>
         <pre class="smaller">
 curl --silent https://{%s p.Context().NetServiceAddress %}/api/miner_info/47ab14EokGgCTX7RYoVhrNMjVA7GfW1jyMAmL7qBQz9fa4RZ6ZsBUgeRGuPWjqeM1wLptSJH5xuX2H4mAepMYvu6JqWMsGw
@@ -351,7 +351,7 @@ curl --silent https://{%s p.Context().NetServiceAddress %}/api/side_blocks_in_wi
 
     <div>
         <h3 class="mono">/api/payouts/&lt;id|address&gt;?search_limit=[search_limit]</h3>
-        <p>Response contains payouts received by this miner due to blocks on Monero network. Optional parameters are <em>search_limit</em>, maximum amount of records to return, set 0 to return all. Defaults to 10</p>
+        <p>Response contains payouts received by this miner due to blocks on Salvium network. Optional parameters are <em>search_limit</em>, maximum amount of records to return, set 0 to return all. Defaults to 10</p>
         <p><em>.[].coinbase_private_key</em> can be used to prove the payout is correct.</p>
         <pre class="smaller">
 [result has been cut due to size, relevant portions shown]
@@ -407,7 +407,7 @@ curl --silent https://{%s p.Context().NetServiceAddress %}/api/payouts/47ab14Eok
 
     <div>
         <h3 class="mono">/api/found_blocks?limit=[limit]&miner=[id|address]</h3>
-        <p>Response contains last found block records on the Monero network by P2Pool. Optional parameters are <em>limit</em>, maximum amount of records to return, defaults to 50, max 1000. Additionally, you can pass the <em>miner</em> parameter to select blocks from that miner only. <em>coinbase</em> parameter can also be used here to decode coinbase outputs.</p>
+        <p>Response contains last found block records on the Salvium network by P2Pool. Optional parameters are <em>limit</em>, maximum amount of records to return, defaults to 50, max 1000. Additionally, you can pass the <em>miner</em> parameter to select blocks from that miner only. <em>coinbase</em> parameter can also be used here to decode coinbase outputs.</p>
         <pre class="smaller">
 curl --silent https://{%s p.Context().NetServiceAddress %}/api/found_blocks?limit=2
 [
@@ -1196,7 +1196,7 @@ curl --silent https://{%s p.Context().NetServiceAddress %}/api/block_by_height/4
         <p>Several endpoints are available that redirect/forward your request via <em>Location</em> HTTP header to the relevant API listed above.</p>
         <p>
             <h4 class="mono">/api/last_found[/raw|...]?...</h4>
-            Redirects to the <em>/api/block_by_id/...</em> record for the last block found on the Monero network by P2Pool.
+            Redirects to the <em>/api/block_by_id/...</em> record for the last block found on the Salvium network by P2Pool.
         </p>
         <p>
         <h4 class="mono">/api/tip[/raw|...]?...</h4>

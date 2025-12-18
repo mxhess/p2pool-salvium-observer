@@ -4,7 +4,7 @@
 {% func TemplatePayouts(ctx *GlobalRequestContext, address *address.Address, payouts <-chan *index.Payout, total *uint64) %}
 <table class="center datatable" style="max-width: calc(8em + 8em + 8em + 10em + 10em + 7em + 12em + 10em)">
     <tr>
-        <th style="width: 8em;">Monero Height</th>
+        <th style="width: 8em;">Salvium Height</th>
         <th style="width: 8em;">P2Pool Height</th>
         <th style="width: 8em;">Age <small>[h:m:s]</small></th>
         <th style="width: 10em;">Reward</th>
@@ -18,7 +18,7 @@
         <th title="{%= hex(ctx, p.MainId) %}"><a href="/b/{%s benc(p.MainHeight) %}">{%dul p.MainHeight %}</a></th>
         <th title="{%= hex(ctx, p.TemplateId) %}"><a href="/share/{%= hex(ctx, p.TemplateId) %}">{%dul p.SideHeight %}</a></th>
         <td title="{%s utc_date(p.Timestamp) %}">{%s date_diff_short(p.Timestamp) %}</td>
-        <td>{%s monero_to_xmr(p.Reward) %} XMR</td>
+        <td>{%s monero_to_xmr(p.Reward) %} SAL</td>
         <td>{%dul p.GlobalOutputIndex %}</td>
         <td title="{%= hex(ctx, p.CoinbaseId) %}" class="mono small"><a href="/t/{%= henc(p.CoinbaseId) %}">{%= shorten(ctx, p.CoinbaseId, 10) %}</a></td>
         <td><a href="/proof/{%= hex(ctx, p.MainId) %}/{%dul uint64(p.Index) %}{% if address.IsSubaddress() %}?address={%z= address.ToBase58() %}{% endif %}" title="Prove you have a matching output for your address on this transaction">[Payout Proof #{%dul uint64(p.Index) %}]</a></td>
@@ -30,7 +30,7 @@
 {% func TemplatePayoutsSlice(ctx *GlobalRequestContext, address *address.Address, payouts []*index.Payout) %}
 <table class="center datatable" style="max-width: calc(8em + 8em + 8em + 10em + 10em + 7em + 12em + 10em)">
     <tr>
-        <th style="width: 8em;">Monero Height</th>
+        <th style="width: 8em;">Salvium Height</th>
         <th style="width: 8em;">P2Pool Height</th>
         <th style="width: 8em;">Age <small>[h:m:s]</small></th>
         <th style="width: 10em;">Reward</th>
@@ -43,7 +43,7 @@
         <th title="{%= hex(ctx, p.MainId) %}"><a href="/b/{%s benc(p.MainHeight) %}">{%dul p.MainHeight %}</a></th>
         <th title="{%= hex(ctx, p.TemplateId) %}"><a href="/share/{%= hex(ctx, p.TemplateId) %}">{%dul p.SideHeight %}</a></th>
         <td title="{%s utc_date(p.Timestamp) %}">{%s date_diff_short(p.Timestamp) %}</td>
-        <td>{%s monero_to_xmr(p.Reward) %} XMR</td>
+        <td>{%s monero_to_xmr(p.Reward) %} SAL</td>
         <td>{%dul p.GlobalOutputIndex %}</td>
         <td title="{%= hex(ctx, p.CoinbaseId) %}" class="mono small"><a href="/t/{%= henc(p.CoinbaseId) %}">{%= shorten(ctx, p.CoinbaseId, 10) %}</a></td>
         <td><a href="/proof/{%= hex(ctx, p.MainId) %}/{%dul uint64(p.Index) %}{% if address.IsSubaddress() %}?address={%z= address.ToBase58() %}{% endif %}" title="Prove you have a matching output for your address on this transaction">[Payout Proof #{%dul uint64(p.Index) %}]</a></td>

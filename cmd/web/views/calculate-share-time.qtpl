@@ -86,14 +86,14 @@ type CalculateShareTimePageEffortEntry struct {
         </tr>
         <tr><th colspan="5">&nbsp;</th></tr>
         <tr style="line-height: 1.5;">
-            <td><strong>Monero Difficulty</strong><br/>{%s si_units(p.Context().Pool.MainChain.Difficulty.Lo, 2) %}</td>
-            <td><strong>Monero Hashrate</strong><br/>{%s si_units(diff_hashrate(p.Context().Pool.MainChain.Difficulty, uint64(p.Context().Pool.MainChain.Consensus.BlockTime)), 2) %}H/s</td>
-            <td title="Mean frequency between P2Pool finds Monero Blocks"><strong>P2Pool Block Mean</strong><br/><em>{%s time_duration_long(float64(p.Context().Pool.MainChain.Difficulty.Lo) / float64(diff_hashrate(p.Context().Pool.SideChain.LastBlock.Difficulty, p.Context().Consensus.TargetBlockTime))) %}</em></td>
-            <td title="Mean frequency between Solo Monero Blocks (without P2Pool)"><strong>Your Solo Block Mean</strong><br/><em>{%s time_duration_long(between_solo) %}</em></td>
-            <td title="Mean Solo Monero Blocks (without P2Pool) per day"><strong>Your Solo Daily Mean Blocks</strong><br/><em>{%f.3 p.EstimatedBlocksPerDay %} block(s)</em></td>
+            <td><strong>Salvium Difficulty</strong><br/>{%s si_units(p.Context().Pool.MainChain.Difficulty.Lo, 2) %}</td>
+            <td><strong>Salvium Hashrate</strong><br/>{%s si_units(diff_hashrate(p.Context().Pool.MainChain.Difficulty, uint64(p.Context().Pool.MainChain.Consensus.BlockTime)), 2) %}H/s</td>
+            <td title="Mean frequency between P2Pool finds Salvium Blocks"><strong>P2Pool Block Mean</strong><br/><em>{%s time_duration_long(float64(p.Context().Pool.MainChain.Difficulty.Lo) / float64(diff_hashrate(p.Context().Pool.SideChain.LastBlock.Difficulty, p.Context().Consensus.TargetBlockTime))) %}</em></td>
+            <td title="Mean frequency between Solo Salvium Blocks (without P2Pool)"><strong>Your Solo Block Mean</strong><br/><em>{%s time_duration_long(between_solo) %}</em></td>
+            <td title="Mean Solo Salvium Blocks (without P2Pool) per day"><strong>Your Solo Daily Mean Blocks</strong><br/><em>{%f.3 p.EstimatedBlocksPerDay %} block(s)</em></td>
         </tr>
         <tr><th colspan="5">&nbsp;</th></tr>
-        <tr style="line-height: 1.5; font-size: 21px;"><td></td><td colspan="3" style="border: #ff6600 dashed 1px;"><strong>Your Estimated Daily Reward</strong><br/>{%s monero_to_xmr(p.EstimatedRewardPerDay) %} XMR</td><td></td></tr>
+        <tr style="line-height: 1.5; font-size: 21px;"><td></td><td colspan="3" style="border: #ff6600 dashed 1px;"><strong>Your Estimated Daily Reward</strong><br/>{%s monero_to_xmr(p.EstimatedRewardPerDay) %} SAL</td><td></td></tr>
     </table>
 
     <br/>

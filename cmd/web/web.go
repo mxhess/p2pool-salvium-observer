@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	_ "net/http/pprof"
@@ -18,7 +17,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"git.gammaspectra.live/P2Pool/consensus/v4/monero"
 	address2 "git.gammaspectra.live/P2Pool/consensus/v4/monero/address"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/client"
 	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
@@ -431,207 +429,7 @@ func main() {
 		}
 	})
 
-	serveMux.HandleFunc("/transaction-lookup", func(writer http.ResponseWriter, request *http.Request) {
 
-		params := request.URL.Query()
-
-		var txId types.Hash
-		if params.Has("txid") {
-			txId, _ = types.HashFromString(params.Get("txid"))
-		}
-
-		if txId != types.ZeroHash {
-			fullResult := getTypeFromAPI[cmdutils.TransactionLookupResult](fmt.Sprintf("transaction_lookup/%s", txId.String()))
-
-			if fullResult != nil && fullResult.Id == txId {
-				var topMiner *index.TransactionInputQueryResultsMatch
-				for i, m := range fullResult.Match {
-					if m.Address == nil {
-						continue
-					} else if topMiner == nil {
-						topMiner = &fullResult.Match[i]
-					} else {
-						if topMiner.Count <= 2 && topMiner.Count == m.Count {
-							//if count is not greater
-							topMiner = nil
-						}
-						break
-					}
-				}
-
-				var topTimestamp, bottomTimestamp uint64 = 0, math.MaxUint64
-
-				getOut := func(outputIndex uint64) *client.Output {
-					if i := slices.IndexFunc(fullResult.Outs, func(output client.Output) bool {
-						return output.GlobalOutputIndex == outputIndex
-					}); i != -1 {
-						return &fullResult.Outs[i]
-					}
-					return nil
-				}
-
-				for _, i := range fullResult.Inputs {
-					for j, o := range i.MatchedOutputs {
-						if o == nil {
-							if oi := getOut(i.Input.KeyOffsets[j]); oi != nil {
-								if oi.Timestamp != 0 {
-									if topTimestamp < oi.Timestamp {
-										topTimestamp = oi.Timestamp
-									}
-									if bottomTimestamp > oi.Timestamp {
-										bottomTimestamp = oi.Timestamp
-									}
-								}
-							}
-							continue
-						}
-						if o.Timestamp != 0 {
-							if topTimestamp < o.Timestamp {
-								topTimestamp = o.Timestamp
-							}
-							if bottomTimestamp > o.Timestamp {
-								bottomTimestamp = o.Timestamp
-							}
-						}
-					}
-				}
-
-				timeScaleItems := topTimestamp - bottomTimestamp
-				if bottomTimestamp == math.MaxUint64 {
-					timeScaleItems = 1
-				}
-				minerCoinbaseChart := cmdutils.NewPositionChart(170, timeScaleItems)
-				minerCoinbaseChart.SetIdle('_')
-				minerSweepChart := cmdutils.NewPositionChart(170, timeScaleItems)
-				minerSweepChart.SetIdle('_')
-				otherCoinbaseMinerChart := cmdutils.NewPositionChart(170, timeScaleItems)
-				otherCoinbaseMinerChart.SetIdle('_')
-				otherSweepMinerChart := cmdutils.NewPositionChart(170, timeScaleItems)
-				otherSweepMinerChart.SetIdle('_')
-				noMinerChart := cmdutils.NewPositionChart(170, timeScaleItems)
-				noMinerChart.SetIdle('_')
-
-				if topMiner != nil {
-					var noMinerCount, minerCount, otherMinerCount uint64
-					for _, i := range fullResult.Inputs {
-						var isNoMiner, isMiner, isOtherMiner bool
-						for j, o := range i.MatchedOutputs {
-							if o == nil {
-								if oi := getOut(i.Input.KeyOffsets[j]); oi != nil {
-									if oi.Timestamp != 0 {
-										noMinerChart.Add(int(topTimestamp-oi.Timestamp), 1)
-									}
-								}
-								isNoMiner = true
-							} else if topMiner.Address.Compare(o.Address) == 0 {
-								isMiner = true
-								if o.Timestamp != 0 {
-									if o.Coinbase != nil {
-										minerCoinbaseChart.Add(int(topTimestamp-o.Timestamp), 1)
-									} else if o.Sweep != nil {
-										minerSweepChart.Add(int(topTimestamp-o.Timestamp), 1)
-									}
-								}
-							} else {
-								isOtherMiner = true
-								if o.Timestamp != 0 {
-									if o.Coinbase != nil {
-										otherCoinbaseMinerChart.Add(int(topTimestamp-o.Timestamp), 1)
-									} else if o.Sweep != nil {
-										otherSweepMinerChart.Add(int(topTimestamp-o.Timestamp), 1)
-									}
-								}
-							}
-						}
-
-						if isMiner {
-							minerCount++
-						} else if isOtherMiner {
-							otherMinerCount++
-						} else if isNoMiner {
-							noMinerCount++
-						}
-					}
-
-					minerRatio := float64(minerCount) / float64(len(fullResult.Inputs))
-					noMinerRatio := float64(noMinerCount) / float64(len(fullResult.Inputs))
-					otherMinerRatio := float64(otherMinerCount) / float64(len(fullResult.Inputs))
-					var likelyMiner bool
-					if (len(fullResult.Inputs) > 8 && minerRatio >= noMinerRatio && minerRatio > otherMinerRatio) || (len(fullResult.Inputs) > 8 && minerRatio > 0.35 && minerRatio > otherMinerRatio) || (len(fullResult.Inputs) >= 4 && minerRatio > 0.75) {
-						likelyMiner = true
-					}
-
-					renderPage(request, writer, &views.TransactionLookupPage{
-						TransactionId:   txId,
-						Result:          fullResult,
-						Miner:           topMiner,
-						LikelyMiner:     likelyMiner,
-						MinerCount:      minerCount,
-						NoMinerCount:    noMinerCount,
-						OtherMinerCount: otherMinerCount,
-						MinerRatio:      minerRatio * 100,
-						NoMinerRatio:    noMinerRatio * 100,
-						OtherMinerRatio: otherMinerRatio * 100,
-						TopTimestamp:    topTimestamp,
-						BottomTimestamp: bottomTimestamp,
-						Positions: struct {
-							MinerCoinbase      *cmdutils.PositionChart
-							OtherMinerCoinbase *cmdutils.PositionChart
-							MinerSweep         *cmdutils.PositionChart
-							OtherMinerSweep    *cmdutils.PositionChart
-							NoMiner            *cmdutils.PositionChart
-						}{
-							MinerCoinbase:      minerCoinbaseChart,
-							OtherMinerCoinbase: otherCoinbaseMinerChart,
-							MinerSweep:         minerSweepChart,
-							OtherMinerSweep:    otherSweepMinerChart,
-							NoMiner:            noMinerChart,
-						},
-					})
-					return
-				}
-			}
-		}
-
-		renderPage(request, writer, &views.TransactionLookupPage{
-			TransactionId: txId,
-		})
-	})
-
-	serveMux.HandleFunc("/sweeps", func(writer http.ResponseWriter, request *http.Request) {
-		params := request.URL.Query()
-		refresh := 0
-		if params.Has("refresh") {
-			writer.Header().Set("refresh", "600")
-			refresh = 600
-		}
-
-		var miner *cmdutils.MinerInfoResult
-		if params.Has("miner") {
-			miner = getTypeFromAPI[cmdutils.MinerInfoResult](fmt.Sprintf("miner_info/%s?noShares", params.Get("miner")))
-			if miner == nil || miner.Address == nil {
-				renderPage(request, writer, views.NewErrorPage(http.StatusNotFound, "Address Not Found", "You need to have mined at least one share in the past. Come back later :)"))
-				return
-			}
-		}
-
-		poolInfo := getTypeFromAPI[cmdutils.PoolInfoResult]("pool_info", 5)
-		lastPoolInfo.Store(poolInfo)
-
-		if miner != nil {
-			renderPage(request, writer, &views.SweepsPage{
-				Refresh: refresh,
-				Sweeps:  getStreamFromAPI[*index.MainLikelySweepTransaction](fmt.Sprintf("sweeps/%d?limit=100", miner.Id)),
-				Miner:   GetPayout(miner.Address, miner.PayoutAddress),
-			}, poolInfo)
-		} else {
-			renderPage(request, writer, &views.SweepsPage{
-				Refresh: refresh,
-				Sweeps:  getStreamFromAPI[*index.MainLikelySweepTransaction]("sweeps?limit=100"),
-				Miner:   nil,
-			}, poolInfo)
-		}
-	})
 
 	serveMux.HandleFunc("/blocks", func(writer http.ResponseWriter, request *http.Request) {
 		params := request.URL.Query()
@@ -768,7 +566,6 @@ func main() {
 
 	serveMux.HandleFunc("/share/{block:[0-9a-f]+|[0-9]+}", func(writer http.ResponseWriter, request *http.Request) {
 		identifier := mux.Vars(request)["block"]
-		params := request.URL.Query()
 
 		var block *index.SideBlock
 		var coinbase index.MainCoinbaseOutputs
@@ -793,49 +590,6 @@ func main() {
 
 		payouts := getStreamFromAPI[*index.Payout](fmt.Sprintf("block_by_id/%s/payouts", block.MainId))
 
-		sweepsCount := 0
-
-		var likelySweeps [][]*index.MainLikelySweepTransaction
-		if params.Has("sweeps") && block.MinedMainAtHeight && ((int64(poolInfo.MainChain.Height)-int64(block.MainHeight))+1) >= monero.MinerRewardUnlockTime {
-			indices := make([]uint64, len(coinbase))
-			for i, o := range coinbase {
-				indices[i] = o.GlobalOutputIndex
-			}
-			data, _ := utils.MarshalJSON(indices)
-			uri, _ := url.Parse(os.Getenv("API_URL") + "sweeps_by_spending_global_output_indices")
-			if response, err := http.DefaultClient.Do(&http.Request{
-				Method: "POST",
-				URL:    uri,
-				Body:   io.NopCloser(bytes.NewReader(data)),
-			}); err == nil {
-				func() {
-					defer response.Body.Close()
-					if response.StatusCode == http.StatusOK {
-						if data, err := io.ReadAll(response.Body); err == nil {
-							r := make([][]*index.MainLikelySweepTransaction, 0, len(indices))
-							if utils.UnmarshalJSON(data, &r) == nil && len(r) == len(indices) {
-								likelySweeps = r
-							}
-						}
-					}
-				}()
-			}
-
-			//remove not likely matching outputs
-			for oi, sweeps := range likelySweeps {
-				likelySweeps[oi] = likelySweeps[oi][:0]
-				for _, s := range sweeps {
-					if s == nil {
-						continue
-					}
-					if s.Address.Compare(coinbase[oi].MinerAddress) == 0 {
-						likelySweeps[oi] = append(likelySweeps[oi], s)
-						sweepsCount++
-					}
-				}
-			}
-
-		}
 
 		if block.Timestamp < uint64(time.Now().Unix()-60) {
 			writer.Header().Set("cache-control", "public; max-age=604800")
@@ -848,8 +602,6 @@ func main() {
 			PoolBlock:       raw,
 			Payouts:         payouts,
 			CoinbaseOutputs: coinbase,
-			SweepsCount:     sweepsCount,
-			Sweeps:          likelySweeps,
 		}, poolInfo)
 	})
 
@@ -903,7 +655,6 @@ func main() {
 
 		var lastFound []*index.FoundBlock
 		var payouts []*index.Payout
-		var sweeps <-chan *index.MainLikelySweepTransaction
 
 		var raw *sidechain.PoolBlock
 
@@ -936,7 +687,6 @@ func main() {
 				defer wg.Done()
 				lastFound = getSliceFromAPI[*index.FoundBlock](fmt.Sprintf("found_blocks?limit=10&miner=%d", miner.Id))
 			}()
-			sweeps = getStreamFromAPI[*index.MainLikelySweepTransaction](fmt.Sprintf("sweeps/%d?limit=5", miner.Id))
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -951,9 +701,6 @@ func main() {
 			}()
 			wg.Wait()
 		} else {
-			sweepC := make(chan *index.MainLikelySweepTransaction)
-			sweeps = sweepC
-			close(sweepC)
 		}
 
 		sharesInWindow := cmdutils.NewPositionChart(30, uint64(poolInfo.SideChain.Window.Blocks))
@@ -1034,7 +781,6 @@ func main() {
 			LastOrphanedShares: lastOrphanedShares,
 			LastFound:          lastFound,
 			LastPayouts:        payouts,
-			LastSweeps:         sweeps,
 		}
 
 		dailyWeight := poolInfo.SideChain.Window.Weight.Mul64(windowDurationSeconds * windowsPerDay).Div64(uint64(poolInfo.SideChain.Window.Blocks))

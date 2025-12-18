@@ -107,7 +107,7 @@ type ConnectivityCheckPage struct {
         </tr>
         <tr><th colspan="6">&nbsp;</th></tr>
         {% if ((p.YourTipRaw.Main.Coinbase.GenHeight < (p.OurTip.MainHeight-3)) || (p.YourTipRaw.Main.Coinbase.GenHeight > (p.OurTip.MainHeight+3))) %}
-        <tr><td colspan="6" style="font-weight: bold; color:#FF4433">Peer Monero node is on a wildly different Monero height than Observer.<br/>Either peer node is lagging behind or your monerod is not up to sync.</td></tr>
+        <tr><td colspan="6" style="font-weight: bold; color:#FF4433">Peer Salvium node is on a wildly different Salvium height than Observer.<br/>Either peer node is lagging behind or your salviumd is not up to sync.</td></tr>
         {% endif %}
         {% if p.YourTip == nil && ((p.YourTipRaw.Side.Height < (p.OurTip.SideHeight-3)) || (p.YourTipRaw.Side.Height > (p.OurTip.SideHeight+3))) %}
         <tr><td colspan="6" style="font-weight: bold; color:#FF4433">Could not find Peer SideChain Tip on Observer.<br/>Either peer node is lagging behind or you are on a forked SideChain.</td></tr>

@@ -10,9 +10,9 @@
 <div class="center" style="text-align: center">
     {% if sideBlock != nil %}
     {% if sideBlock.MinedMainAtHeight %}
-    <h1 style="color:#00C000">This share mined Monero block at height {%dul sideBlock.MainHeight %}</h1>
+    <h1 style="color:#00C000">This share mined Salvium block at height {%dul sideBlock.MainHeight %}</h1>
     {% elseif (sideBlock.MainDifficulty > 0) && (sideBlock.PowDifficulty >= sideBlock.MainDifficulty) && !sideBlock.MinedMainAtHeight %}
-    <h1 style="color:#E0E000">This share mined Monero block at height {%dul sideBlock.MainHeight %}, but was orphaned</h1>
+    <h1 style="color:#E0E000">This share mined Salvium block at height {%dul sideBlock.MainHeight %}, but was orphaned</h1>
     {% endif %}
     {% if sideBlock.IsOrphan() %}
     <h1 style="color:#E0E000">This share has been orphaned</h1>
@@ -43,8 +43,8 @@
         <tr>
             <th style="width: 8em">P2Pool Height</th>
             <th style="width: 28em">P2Pool Template Id</th>
-            <th style="width: 8em">Monero Height</th>
-            <th style="width: 28em">Monero Id</th>
+            <th style="width: 8em">Salvium Height</th>
+            <th style="width: 28em">Salvium Id</th>
         </tr>
         <tr>
             <td>{%dul poolBlock.Side.Height %}</td>
@@ -104,7 +104,7 @@
             {% else %}
             <td class="mono smaller">{%= hex(ctx, poolBlock.CoinbaseId()) %}</td>
             {% endif %}
-            <td class="small">{%s monero_to_xmr(poolBlock.Main.Coinbase.AuxiliaryData.TotalReward) %} XMR</td>
+            <td class="small">{%s monero_to_xmr(poolBlock.Main.Coinbase.AuxiliaryData.TotalReward) %} SAL</td>
             <td class="mono smaller">{%= hex(ctx, poolBlock.Side.CoinbasePrivateKey) %}</td>
         </tr>
         <tr><td colspan="4">&nbsp;</td></tr>
@@ -112,7 +112,7 @@
             <th>Nonce</th>
             <th>Cumulative Difficulty</th>
             <th>Extra Nonce</th>
-            <th>Monero Target Difficulty</th>
+            <th>Salvium Target Difficulty</th>
         </tr>
         <tr>
             <td class="mono" title="{%= hex(ctx, poolBlock.Main.Nonce) %}">{%dul uint64(poolBlock.Main.Nonce) %}</td>
@@ -155,7 +155,7 @@
 
         {%= TemplatePayouts(ctx, get_payout(sideBlock.MinerAddress, sideBlock.MinerPayoutAddress), payouts, &total) %}
         {% if sideBlock.EffectiveHeight > (ctx.Pool.SideChain.LastBlock.SideHeight - uint64(ctx.Pool.SideChain.Window.Blocks)) %}
-        <div class="center"><h3>Share is inside the PPLNS window. Any Monero blocks found during this period by any P2Pool miner will provide a direct payout.</h3></div>
+        <div class="center"><h3>Share is inside the PPLNS window. Any Salvium blocks found during this period by any P2Pool miner will provide a direct payout.</h3></div>
         {% else %}
         <div class="center">Share is outside the PPLNS window. No more payouts for this share will be provided by other P2Pool miners.</div>
         {% endif %}
@@ -207,7 +207,7 @@
             {% code globalOutputIndex = coinbaseOutputs[t.Index].GlobalOutputIndex %}
             {%= TemplateRowMiner(ctx, get_payout(coinbaseOutputs[t.Index].MinerAddress, coinbaseOutputs[t.Index].MinerPayoutAddress), coinbaseOutputs[t.Index].MinerAlias) %}
             {% endif %}
-            <td class="small" title="{%f.3 (float64(t.Reward) / float64(poolBlock.Main.Coinbase.AuxiliaryData.TotalReward)) * 100 %}%">{%s monero_to_xmr(t.Reward) %} XMR</td>
+            <td class="small" title="{%f.3 (float64(t.Reward) / float64(poolBlock.Main.Coinbase.AuxiliaryData.TotalReward)) * 100 %}%">{%s monero_to_xmr(t.Reward) %} SAL</td>
             {% if sideBlock != nil && sideBlock.MinedMainAtHeight %}
             <td class="small">{%dul globalOutputIndex %}</td>
             <td class="small"><a href="/proof/{%= hex(ctx, sideBlock.MainId) %}/{%dul t.Index %}" title="Prove you have a matching output for this address on this transaction">[Payout Proof #{%dul t.Index %}]</a></td>
@@ -215,7 +215,7 @@
             {% code outputSweeps := sweeps[t.Index] %}
             {% if len(outputSweeps) > 0 %}
             {% code sweep := outputSweeps[0] %}
-            <td class="smaller" title="{%s utc_date(sweep.Timestamp) %}"><a href="/transaction-lookup?txid={%= hex(ctx, sweep.Id) %}" class="mono">{%= shorten(ctx, sweep.Id, 10) %} {%d sweep.MinerCount %} / {%d sweep.InputCount %}</a></td>
+            <td class="smaller mono" title="{%s utc_date(sweep.Timestamp) %} - Transaction: {%= hex(ctx, sweep.Id) %}">{%= shorten(ctx, sweep.Id, 10) %} {%d sweep.MinerCount %} / {%d sweep.InputCount %}</td>
             {% elseif (ctx.Pool.MainChain.Height - sideBlock.MainHeight + 1) < 60 %}
             <td class="small">Not unlocked</td>
             {% else %}

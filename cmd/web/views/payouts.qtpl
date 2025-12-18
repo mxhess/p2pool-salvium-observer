@@ -34,7 +34,7 @@ type PayoutsPage struct {
 
     {%= TemplatePayouts(p.Context(), p.Miner, p.Payouts, &total) %}
 
-    <p><strong>Estimated total:</strong> {%s monero_to_xmr(total) %} XMR</p>
+    <p><strong>Estimated total:</strong> {%s monero_to_xmr(total) %} SAL</p>
 </div>
 
 {% endfunc %}

@@ -6,7 +6,7 @@
 {% func TemplateFoundBlocks(ctx *GlobalRequestContext, foundBlocks []*index.FoundBlock, isMiner bool) %}
 <table class="center datatable" style="max-width: calc(8em + 8em + 8em + 8em{% if isMiner %}{% else %} + 12em + 8em{% endif %} + 10em + 7em + 12em + 28em)">
     <tr>
-        <th style="width: 8em;">Monero Height</th>
+        <th style="width: 8em;">Salvium Height</th>
         <th style="width: 8em;">P2Pool Height</th>
         <th style="width: 8em;">Age <small>[h:m:s]</small></th>
         {% if !isMiner %}
@@ -22,7 +22,7 @@
     {% for i, b := range foundBlocks %}
     <tr>
         {% if b.Orphan() %}
-        <th title="{%= hex(ctx, b.MainBlock.Id) %} is an orphan at Monero height {%dul b.MainBlock.Height %}">{%dul b.MainBlock.Height %}*</th>
+        <th title="{%= hex(ctx, b.MainBlock.Id) %} is an orphan at Salvium height {%dul b.MainBlock.Height %}">{%dul b.MainBlock.Height %}*</th>
         {% else %}
         <th title="{%= hex(ctx, b.MainBlock.Id) %}"><a href="/b/{%s benc(b.MainBlock.Height) %}">{%dul b.MainBlock.Height %}</a></th>
         {% endif %}
@@ -54,7 +54,7 @@
         {% if b.Orphan() %}
         <th class="small">-</th>
         {% else %}
-        <th class="small">{%s monero_to_xmr(b.MainBlock.Reward) %} XMR</th>
+        <th class="small">{%s monero_to_xmr(b.MainBlock.Reward) %} SAL</th>
         {% endif %}
         <td>{%dul uint64(b.WindowOutputs) %}</td>
         {% if b.Orphan() %}

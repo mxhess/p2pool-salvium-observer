@@ -13,9 +13,9 @@ type BlocksPage struct {
 
 {% func (p *BlocksPage) Title() %}
 {% if p.Miner == nil %}
-{%= p.BasePage.Title() %} - Recent Found Monero blocks
+{%= p.BasePage.Title() %} - Recent Found Salvium blocks
 {% else %}
-{%= p.BasePage.Title() %} - Found Monero blocks by {%z= p.Miner.ToBase58() %}
+{%= p.BasePage.Title() %} - Found Salvium blocks by {%z= p.Miner.ToBase58() %}
 {% endif %}
 {% endfunc %}
 
@@ -32,9 +32,9 @@ type BlocksPage struct {
 
 <div style="text-align: center">
     {% if p.Miner == nil %}
-    <h2>Recent Found Monero blocks</h2>
+    <h2>Recent Found Salvium blocks</h2>
     {% else %}
-    <h2>{%= p.BasePage.Title() %} - Found Monero blocks by {%z= p.Miner.ToBase58() %}</h2>
+    <h2>{%= p.BasePage.Title() %} - Found Salvium blocks by {%z= p.Miner.ToBase58() %}</h2>
     {% endif %}
     {%= TemplateFoundBlocks(p.Context(), p.FoundBlocks, p.Miner != nil) %}
 </div>

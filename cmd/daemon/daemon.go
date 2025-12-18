@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/randomx"
 	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/cache/legacy"
 	"git.gammaspectra.live/P2Pool/consensus/v4/p2pool/sidechain"
+	p2pooltypes "git.gammaspectra.live/P2Pool/consensus/v4/p2pool/types"
 	"git.gammaspectra.live/P2Pool/consensus/v4/types"
 	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
 	"github.com/redis/go-redis/v9"
@@ -660,12 +662,17 @@ type Daemon2 struct {
 	// Cached data from data-api
 	mainchainDifficulty uint64
 	sidechainDifficulty uint64
+	pplnsWindowSize     uint64 // Current PPLNS window size from data-api (can change during hardforks)
 
 	// Event-driven tracking
 	lastSidechainHeight uint64
 	lastMainchainHeight uint64
 	lastMediumRecalc    time.Time
 }
+
+// sideBlocksLock is used by ws.go for legacy websocket code
+// TODO: Remove when ws.go is migrated to daemon v2
+var sideBlocksLock sync.RWMutex
 
 // ShareData represents a share stored in Redis
 type ShareData struct {
@@ -699,12 +706,45 @@ type FoundBlockData struct {
 	UncleCount      int    `json:"uncle_count"`
 }
 
-// PPLNSWindowData represents PPLNS window stats
+// PPLNSWindowData represents PPLNS window stats (deprecated, use PPLNSCacheData)
 type PPLNSWindowData struct {
-	Miners int `json:"miners"`
-	Blocks int `json:"blocks"`
-	Uncles int `json:"uncles"`
+	Miners int    `json:"miners"`
+	Blocks int    `json:"blocks"`
+	Uncles int    `json:"uncles"`
 	Weight uint64 `json:"weight"`
+}
+
+// PPLNSCacheData represents complete PPLNS window data cached in Redis
+// This is calculated by the daemon and read by the API for performance
+type PPLNSCacheData struct {
+	// Basic stats
+	Miners int    `json:"miners"`
+	Blocks int    `json:"blocks"`
+	Uncles int    `json:"uncles"`
+	Weight uint64 `json:"weight"`
+
+	// Software versions aggregated by weight
+	Versions []PPLNSVersionEntry `json:"versions"`
+
+	// Bottom block (for window boundary info)
+	BottomHeight     uint64 `json:"bottom_height"`
+	BottomTemplateId string `json:"bottom_template_id"`
+
+	// Window size used for this calculation (can change during hardforks)
+	WindowSize uint64 `json:"window_size"`
+
+	// Timestamp when calculated
+	CalculatedAt int64 `json:"calculated_at"`
+}
+
+// PPLNSVersionEntry represents a software version entry in PPLNS window
+type PPLNSVersionEntry struct {
+	SoftwareId      uint32  `json:"software_id"`
+	SoftwareVersion uint32  `json:"software_version"`
+	SoftwareString  string  `json:"software_string"`
+	Weight          uint64  `json:"weight"`
+	Count           int     `json:"count"`
+	Share           float64 `json:"share"` // Percentage share of total weight
 }
 
 // EffortData represents effort statistics
@@ -970,9 +1010,18 @@ func (d *Daemon2) readDataAPIFiles() error {
 		poolStats.PoolStatistics.SidechainHeight,
 		poolStats.PoolStatistics.PPLNSWindowSize)
 
-	// Cache difficulties for effort calculation
+	// Cache values from data-api for calculations
 	d.mainchainDifficulty = networkStats.Difficulty
 	d.sidechainDifficulty = poolStats.PoolStatistics.SidechainDifficulty
+
+	// IMPORTANT: Use window size from data-api, NOT hardcoded consensus value
+	// The window size can change during hardforks, and P2Pool's data-api has the current value
+	oldWindowSize := d.pplnsWindowSize
+	d.pplnsWindowSize = poolStats.PoolStatistics.PPLNSWindowSize
+	if oldWindowSize != 0 && oldWindowSize != d.pplnsWindowSize {
+		utils.Logf("DATA-API", "WARNING: PPLNS window size changed! %d -> %d (hardfork?)",
+			oldWindowSize, d.pplnsWindowSize)
+	}
 
 	// Store current stats in Redis (no TTL - always keep latest)
 	d.redis.Set("stats:pool:hashrate", statsMod.Pool.Hashrate, 0)
@@ -1217,10 +1266,14 @@ func (d *Daemon2) heavyWork() error {
 		return nil
 	}
 
-	// Calculate PPLNS window (last N shares based on consensus window size)
-	pplnsWindow := d.calculatePPLNSWindow(d.allShares)
-	pplnsJSON, _ := json.Marshal(pplnsWindow)
-	d.redis.Set("stats:pplns:window", string(pplnsJSON), 0)
+	// Calculate PPLNS window with complete data (follows parent chain)
+	// This is the expensive calculation that we cache for the API
+	pplnsCache := d.calculatePPLNSWindow(d.allShares)
+	pplnsCacheJSON, _ := json.Marshal(pplnsCache)
+	d.redis.Set("cache:pplns:window", string(pplnsCacheJSON), 0)
+
+	utils.Logf("HEAVY", "PPLNS window calculated: %d miners, %d blocks, %d uncles, weight=%d, %d versions",
+		pplnsCache.Miners, pplnsCache.Blocks, pplnsCache.Uncles, pplnsCache.Weight, len(pplnsCache.Versions))
 
 	// Calculate effort statistics
 	effort := d.calculateEffort(d.allShares)
@@ -1240,46 +1293,149 @@ func (d *Daemon2) heavyWork() error {
 	return nil
 }
 
-// calculatePPLNSWindow calculates PPLNS window statistics
-func (d *Daemon2) calculatePPLNSWindow(shares []*sidechain.PoolBlock) PPLNSWindowData {
+// calculatePPLNSWindow calculates PPLNS window statistics following parent chain
+// This is the sophisticated version that matches the API's logic
+func (d *Daemon2) calculatePPLNSWindow(shares []*sidechain.PoolBlock) PPLNSCacheData {
 	if len(shares) == 0 {
-		return PPLNSWindowData{}
+		return PPLNSCacheData{CalculatedAt: time.Now().Unix()}
 	}
 
-	// Get the window size from consensus
-	windowSize := d.consensus.ChainWindowSize
+	// Get the tip (last share in the chain)
+	tip := shares[len(shares)-1]
 
-	// Take last N shares (up to window size)
-	windowShares := shares
-	if uint64(len(shares)) > windowSize {
-		windowShares = shares[len(shares)-int(windowSize):]
+	// IMPORTANT: Use window size from data-api, NOT hardcoded consensus value
+	// The window size can change during hardforks
+	windowSize := d.pplnsWindowSize
+	if windowSize == 0 {
+		// Fallback to consensus default if data-api hasn't been read yet
+		windowSize = d.consensus.ChainWindowSize
+		utils.Logf("PPLNS", "WARNING: Using consensus default window size %d (data-api not read yet)", windowSize)
 	}
 
-	// Count unique miners in window
+	// Create a map for quick share lookups by template ID
+	shareMap := make(map[types.Hash]*sidechain.PoolBlock)
+	for _, share := range shares {
+		templateId := share.SideTemplateId(d.consensus)
+		shareMap[templateId] = share
+	}
+
+	// Track statistics
 	minersInWindow := make(map[string]bool)
-	blocksInWindow := 0
-	unclesInWindow := 0
+	versions := make([]PPLNSVersionEntry, 0)
 	totalWeight := uint64(0)
+	blockCount := 0
+	uncleCount := 0
+	var bottomBlock *sidechain.PoolBlock
 
-	for _, share := range windowShares {
-		minerAddr := share.Side.PublicKey.ToAddress(monero.MainNetwork)
+	// Follow parent chain backwards from tip
+	visited := make(map[types.Hash]bool)
+	current := tip
+	count := uint64(0)
+
+	for count < windowSize && current != nil {
+		templateId := current.SideTemplateId(d.consensus)
+
+		// Prevent infinite loops
+		if visited[templateId] {
+			break
+		}
+		visited[templateId] = true
+
+		// Extract miner address
+		minerAddr := current.Side.PublicKey.ToAddress(monero.MainNetwork)
 		if minerAddr != nil {
 			minersInWindow[string(minerAddr.ToBase58())] = true
 		}
 
-		// TODO: Detect uncles properly
-		// For now, count all as regular blocks
-		blocksInWindow++
+		// Calculate weight for this block
+		weight := current.Side.Difficulty.Lo
+		totalWeight += weight
 
-		// Add difficulty as weight
-		totalWeight += share.Side.Difficulty.Lo
+		// Aggregate software versions
+		softwareId := p2pooltypes.SoftwareId(current.Side.ExtraBuffer.SoftwareId)
+		softwareVersion := p2pooltypes.SoftwareVersion(current.Side.ExtraBuffer.SoftwareVersion)
+
+		// Find or create version entry
+		foundVersion := false
+		for i := range versions {
+			if versions[i].SoftwareId == uint32(softwareId) &&
+				versions[i].SoftwareVersion == uint32(softwareVersion) {
+				versions[i].Weight += weight
+				versions[i].Count++
+				foundVersion = true
+				break
+			}
+		}
+
+		if !foundVersion {
+			versions = append(versions, PPLNSVersionEntry{
+				SoftwareId:      uint32(softwareId),
+				SoftwareVersion: uint32(softwareVersion),
+				SoftwareString:  fmt.Sprintf("%s %s", softwareId, softwareVersion.SoftwareAwareString(softwareId)),
+				Weight:          weight,
+				Count:           1,
+			})
+		}
+
+		// Count blocks and uncles
+		blockCount++
+		for _, uncle := range current.Side.Uncles {
+			if uncle != types.ZeroHash {
+				uncleCount++
+			}
+		}
+
+		// Track bottom block (first one we encounter, which is at the end of the window)
+		if bottomBlock == nil || current.Side.Height < bottomBlock.Side.Height {
+			bottomBlock = current
+		}
+
+		count++
+
+		// Follow parent link
+		if current.Side.Parent == types.ZeroHash {
+			break
+		}
+
+		// Get parent block
+		parent, exists := shareMap[current.Side.Parent]
+		if !exists {
+			break
+		}
+
+		current = parent
 	}
 
-	return PPLNSWindowData{
-		Miners: len(minersInWindow),
-		Blocks: blocksInWindow,
-		Uncles: unclesInWindow,
-		Weight: totalWeight,
+	// Sort versions by weight (descending)
+	sort.Slice(versions, func(i, j int) bool {
+		return versions[i].Weight > versions[j].Weight
+	})
+
+	// Calculate percentage shares
+	for i := range versions {
+		if totalWeight > 0 {
+			versions[i].Share = (float64(versions[i].Weight) / float64(totalWeight)) * 100.0
+		}
+	}
+
+	// Prepare bottom block info
+	var bottomHeight uint64
+	var bottomTemplateId string
+	if bottomBlock != nil {
+		bottomHeight = bottomBlock.Side.Height
+		bottomTemplateId = bottomBlock.SideTemplateId(d.consensus).String()
+	}
+
+	return PPLNSCacheData{
+		Miners:           len(minersInWindow),
+		Blocks:           blockCount,
+		Uncles:           uncleCount,
+		Weight:           totalWeight,
+		Versions:         versions,
+		BottomHeight:     bottomHeight,
+		BottomTemplateId: bottomTemplateId,
+		WindowSize:       windowSize,
+		CalculatedAt:     time.Now().Unix(),
 	}
 }
 
@@ -1438,11 +1594,9 @@ func calculateAverage(values []float64, n int) float64 {
 	return sum / float64(len(subset))
 }
 
-// extractAndStorePayouts extracts payout data from coinbase outputs
-// TODO: This requires decrypting outputs with view/spend keys to determine recipient addresses
-// For now, just store basic payout info without recipient mapping
+// extractAndStorePayouts calculates and stores per-miner payouts based on PPLNS window
 func (d *Daemon2) extractAndStorePayouts() {
-	// Process all shares to extract basic payout data from coinbase outputs
+	// Process all shares to extract payout data from found blocks
 	for _, share := range d.allShares {
 		if !d.isFoundBlock(share) {
 			continue
@@ -1453,7 +1607,7 @@ func (d *Daemon2) extractAndStorePayouts() {
 		mainHeight := share.Main.Coinbase.GenHeight
 		timestamp := share.Main.Timestamp
 
-		// Store basic payout info for the block (output count and total reward)
+		// Calculate total reward from coinbase outputs
 		totalReward := uint64(0)
 		outputCount := 0
 		for _, output := range share.Main.Coinbase.Outputs {
@@ -1461,6 +1615,7 @@ func (d *Daemon2) extractAndStorePayouts() {
 			outputCount++
 		}
 
+		// Store block payout summary
 		payoutData := map[string]interface{}{
 			"main_id":      mainId,
 			"side_height":  sideHeight,
@@ -1469,13 +1624,113 @@ func (d *Daemon2) extractAndStorePayouts() {
 			"total_reward": totalReward,
 			"output_count": outputCount,
 		}
-
 		payoutJSON, _ := json.Marshal(payoutData)
-
-		// Store payout summary indexed by side height
 		payoutKey := fmt.Sprintf("block:payouts:%d", sideHeight)
 		d.redis.Set(payoutKey, string(payoutJSON), 0) // Permanent
+
+		// Calculate PPLNS window at this block height to determine per-miner payouts
+		minerWeights := d.calculatePPLNSMinerWeights(share)
+		if len(minerWeights) == 0 {
+			continue
+		}
+
+		// Calculate total weight in window
+		totalWeight := uint64(0)
+		for _, weight := range minerWeights {
+			totalWeight += weight
+		}
+
+		if totalWeight == 0 {
+			continue
+		}
+
+		// Store individual miner payouts
+		for minerAddr, weight := range minerWeights {
+			// Calculate this miner's share of the reward
+			minerPayout := (totalReward * weight) / totalWeight
+
+			// Create payout record
+			payoutRecord := map[string]interface{}{
+				"main_id":      mainId,
+				"main_height":  mainHeight,
+				"side_height":  sideHeight,
+				"timestamp":    timestamp,
+				"amount":       minerPayout,
+				"total_reward": totalReward,
+				"weight":       weight,
+				"total_weight": totalWeight,
+			}
+
+			recordJSON, _ := json.Marshal(payoutRecord)
+
+			// Add to miner's payout list (prepend for most recent first)
+			minerPayoutKey := fmt.Sprintf("miner:%s:payouts", minerAddr)
+			d.redis.LPush(minerPayoutKey, string(recordJSON))
+
+			// Trim list to last 100 payouts per miner
+			d.redis.LTrim(minerPayoutKey, 0, 99)
+		}
 	}
+}
+
+// calculatePPLNSMinerWeights returns a map of miner addresses to their weights in the PPLNS window
+// at the time of the given share
+func (d *Daemon2) calculatePPLNSMinerWeights(foundBlockShare *sidechain.PoolBlock) map[string]uint64 {
+	// Get window size
+	windowSize := d.pplnsWindowSize
+	if windowSize == 0 {
+		windowSize = d.consensus.ChainWindowSize
+	}
+
+	// Create share lookup map
+	shareMap := make(map[types.Hash]*sidechain.PoolBlock)
+	for _, share := range d.allShares {
+		templateId := share.SideTemplateId(d.consensus)
+		shareMap[templateId] = share
+	}
+
+	// Track miner weights in window
+	minerWeights := make(map[string]uint64)
+
+	// Follow parent chain backwards from the found block
+	visited := make(map[types.Hash]bool)
+	current := foundBlockShare
+	count := uint64(0)
+
+	for count < windowSize && current != nil {
+		templateId := current.SideTemplateId(d.consensus)
+
+		// Prevent infinite loops
+		if visited[templateId] {
+			break
+		}
+		visited[templateId] = true
+
+		// Extract miner address
+		minerAddr := current.Side.PublicKey.ToAddress(monero.MainNetwork)
+		if minerAddr != nil {
+			addrStr := string(minerAddr.ToBase58())
+			// Add this share's difficulty as weight
+			minerWeights[addrStr] += current.Side.Difficulty.Lo
+		}
+
+		count++
+
+		// Follow parent link
+		if current.Side.Parent == types.ZeroHash {
+			break
+		}
+
+		// Get parent block
+		parent, exists := shareMap[current.Side.Parent]
+		if !exists {
+			break
+		}
+
+		current = parent
+	}
+
+	return minerWeights
 }
 
 // storeFoundBlocks stores found block data

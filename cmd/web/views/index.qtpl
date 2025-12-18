@@ -31,8 +31,8 @@ type IndexPage struct {
         <tr>
             <th style="width: 15em">P2Pool Height</th>
             <th style="width: 15em">P2Pool Hashrate</th>
-            <th style="width: 15em">Monero Height</th>
-            <th style="width: 15em">Monero Hashrate</th>
+            <th style="width: 15em">Salvium Height</th>
+            <th style="width: 15em">Salvium Hashrate</th>
         </tr>
         <tr>
             <td title="{%= hex(p.Context(), p.Context().Pool.SideChain.LastBlock.TemplateId) %}"><a href="/share/{%= hex(p.Context(), p.Context().Pool.SideChain.LastBlock.TemplateId) %}">{%dul p.Context().Pool.SideChain.LastBlock.SideHeight %}</a></td>
@@ -43,8 +43,8 @@ type IndexPage struct {
         <tr><th colspan="4">&nbsp;</th></tr>
         <tr>
             <th>P2Pool Difficulty</th>
-            <th title="Percentage of Monero hashrate P2Pool has">P2Pool Monero %</th>
-            <th>Monero Difficulty</th>
+            <th title="Percentage of Salvium network hashrate P2Pool has">P2Pool Network %</th>
+            <th>Salvium Difficulty</th>
             <th title="This includes blocks the site knows about since it started observing. There might be more orphaned or produced by other sidechain not included here.">Blocks Found</th>
         </tr>
         <tr>
@@ -57,7 +57,7 @@ type IndexPage struct {
         <tr>
             <th title="Miners that have ever mined a share on P2Pool">Miners Known</th>
             <th>Average Effort</th>
-            <th title="Mean frequency between P2Pool finds Monero Blocks">Block Found Frequency</th>
+            <th title="Mean frequency between P2Pool finds Salvium Blocks">Block Found Frequency</th>
             <th>Last Found Block</th>
         </tr>
         <tr>
@@ -98,7 +98,7 @@ type IndexPage struct {
     <form action="/miner" method="get">
         <h2>Lookup miner statistics</h2>
         <div>
-            <label for="miner-address">Payout Monero address or Miner Alias</label><br/>
+            <label for="miner-address">Payout Salvium address or Miner Alias</label><br/>
             <input type="text" name="address" id="miner-address" placeholder="{%s p.Context().DonationAddress %}" size="96" class="mono"/>
         </div>
         <div style="margin-top: 10px">
@@ -111,15 +111,12 @@ type IndexPage struct {
     <p>
         <a href="/miners">[Current Window Miners]</a> :: <a href="/miners?weekly">[Weekly Miners]</a>
     </p>
-    <p>
-        <a href="/transaction-lookup">[Sweep Transaction Lookup]</a> :: <a href="/sweeps">[Recent Likely Sweep Transactions]</a>
-    </p>
 </div>
 
 <hr/>
 
 <div style="text-align: center">
-    <h2>Recent Monero blocks found by P2Pool miners</h2>
+    <h2>Recent Salvium blocks found by P2Pool miners</h2>
 
     {%= TemplateFoundBlocks(p.Context(), p.FoundBlocks, false) %}
     <div class="center"><a href="/blocks">[show more found blocks]</a></div>
