@@ -2,8 +2,27 @@
 default.pgo.tmp
 .env
 docker-compose.override.yml
-daemon
-daemon2
-api
-web
+
+# Binaries (root level only)
+bin/
+/daemon
+/daemon2
+/api
+/web
+/p2plistener
+/p2pool-observer
+
+# Editor files
+*.swp
+*~
+
+# Local scripts and docs
+scripts/
+docs/
+*.md
+!README.md
+
+# Test/debug tools
+cmd/cache-test/
+cmd/parse-debug/
 

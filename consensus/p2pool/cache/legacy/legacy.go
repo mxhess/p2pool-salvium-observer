@@ -7,7 +7,6 @@ import (
 	"git.gammaspectra.live/P2Pool/consensus/v4/utils"
 	"io"
 	"os"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -20,7 +19,6 @@ type Cache struct {
 	f                 *os.File
 	flushRunning      atomic.Bool
 	storeIndex        atomic.Uint32
-	loadingStarted    sync.Once
 	loadingInProgress atomic.Bool
 	consensus         *sidechain.Consensus
 }
@@ -50,7 +48,8 @@ func (c *Cache) Store(block *sidechain.PoolBlock) {
 	if c.loadingInProgress.Load() {
 		return
 	}
-	if blob, err := block.AppendBinaryFlags(make([]byte, 0, block.BufferLength()), false, false); err != nil {
+
+	if blob, err := block.MarshalBinary(); err != nil {
 		return
 	} else {
 		if (len(blob) + 4) > blockSize {
@@ -64,57 +63,71 @@ func (c *Cache) Store(block *sidechain.PoolBlock) {
 }
 
 func (c *Cache) LoadAll(l cache.Loadee) {
-	c.loadingStarted.Do(func() {
-		c.loadingInProgress.Store(true)
-		defer c.loadingInProgress.Store(false)
-		utils.Logf("Cache", "Loading cached blocks")
+	// Check if already loading (prevent concurrent loads)
+	if c.loadingInProgress.Swap(true) {
+		utils.Logf("Cache", "Load already in progress, skipping")
+		return
+	}
+	defer c.loadingInProgress.Store(false)
 
-		var blobLen [4]byte
-		buf := make([]byte, 0, blockSize)
+	utils.Logf("Cache", "Loading cached blocks")
 
-		var blocksLoaded int
-		var highest uint64
-		var highestIndex int
+	var blobLen [4]byte
+	buf := make([]byte, blockSize)
 
-		for i := 0; i < NumBlocks; i++ {
-			storeIndex := i * blockSize
+	var blocksLoaded int
+	var highest uint64
+	var highestIndex int
 
-			if _, err := c.f.ReadAt(blobLen[:], int64(storeIndex)); err != nil {
-				return
-			}
-			blobLength := binary.LittleEndian.Uint32(blobLen[:])
-			if (blobLength + 4) > blockSize {
-				//block too big
-				continue
-			}
-			if _, err := c.f.ReadAt(buf[:blobLength], int64(storeIndex)+4); err != nil {
-				continue
-			}
+	for i := 0; i < NumBlocks; i++ {
+		storeIndex := i * blockSize
 
-			block := &sidechain.PoolBlock{
-				Metadata: sidechain.PoolBlockReceptionMetadata{
-					LocalTime: time.Now().UTC(),
-				},
-			}
+		if _, err := c.f.ReadAt(blobLen[:], int64(storeIndex)); err != nil {
+			return
+		}
+		blobLength := binary.LittleEndian.Uint32(blobLen[:])
 
-			if err := block.UnmarshalBinary(c.consensus, &sidechain.NilDerivationCache{}, buf[:blobLength]); err != nil {
-				continue
-			}
-
-			l.AddCachedBlock(block)
-
-			if block.Side.Height > highest {
-				highest = block.Side.Height
-				highestIndex = i
-			}
-
-			blocksLoaded++
+		if i < 5 {
+			utils.Logf("Cache", "Block %d: length=%d at offset=%d", i, blobLength, storeIndex)
 		}
 
-		c.storeIndex.Store(uint32(highestIndex + 1))
+		if blobLength == 0 {
+			continue
+		}
+		if (blobLength + 4) > blockSize {
+			//block too big
+			continue
+		}
+		if _, err := c.f.ReadAt(buf[:blobLength], int64(storeIndex)+4); err != nil {
+			continue
+		}
 
-		utils.Logf("Cache", "Loaded %d cached blocks", blocksLoaded)
-	})
+		block := &sidechain.PoolBlock{
+			Metadata: sidechain.PoolBlockReceptionMetadata{
+				LocalTime: time.Now().UTC(),
+			},
+		}
+
+		if err := block.UnmarshalBinary(c.consensus, &sidechain.NilDerivationCache{}, buf[:blobLength]); err != nil {
+			if blocksLoaded < 5 {
+				utils.Logf("Cache", "Block %d unmarshal error: %v", i, err)
+			}
+			continue
+		}
+
+		l.AddCachedBlock(block)
+
+		if block.Side.Height > highest {
+			highest = block.Side.Height
+			highestIndex = i
+		}
+
+		blocksLoaded++
+	}
+
+	c.storeIndex.Store(uint32(highestIndex + 1))
+
+	utils.Logf("Cache", "Loaded %d cached blocks", blocksLoaded)
 }
 
 func (c *Cache) Close() {

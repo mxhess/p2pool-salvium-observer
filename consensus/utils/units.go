@@ -17,6 +17,6 @@ func SiUnits(number float64, decimals int) string {
 }
 
 func XMRUnits(v uint64) string {
-	const denomination = 1000000000000
-	return fmt.Sprintf("%d.%012d", v/denomination, v%denomination)
+	const denomination = 100000000 // Salvium uses 1e8, not 1e12
+	return fmt.Sprintf("%d.%08d", v/denomination, v%denomination)
 }

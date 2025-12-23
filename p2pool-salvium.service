@@ -1,0 +1,55 @@
+# /etc/systemd/system/p2pool-salvium.service
+
+[Unit]
+Description=P2Pool Salvium Decentralized Mining Pool
+Documentation=https://github.com/salvium/p2pool-salvium
+After=network-online.target salviumd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=p2pool
+Group=p2pool
+WorkingDirectory=/srv/p2pool
+
+# Main P2Pool process
+# Adjust parameters as needed for your setup
+ExecStart=/srv/p2pool/p2pool-salvium \
+  --host 127.0.0.1 \
+  --rpc-port 19081 \
+  --zmq-port 19084 \
+  --wallet YOUR_SALVIUM_ADDRESS \
+  --stratum 0.0.0.0:3333 \
+  --p2p 0.0.0.0:37889 \
+  --loglevel 3 \
+  --data-api /srv/p2pool/data-api
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/p2pool
+
+# Resource limits
+LimitNOFILE=65535
+# P2Pool can use significant RAM for sidechain data
+MemoryMax=4G
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=p2pool-salvium
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miner Stats - P2Pool Salvium</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+    <div class="content center">
+        <nav style="margin-bottom: 2rem; text-align: center;">
+            <a href="." class="nav-item">Home</a> |
+            <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="miners.html" class="nav-item">Miners</a> |
+            <a href="calculator.html" class="nav-item">Calculator</a>
+        </nav>
+
+        <h1 style="text-align: center; margin-bottom: 2rem;">Miner Statistics</h1>
+
+        <!-- Address Search -->
+        <div class="address-section" style="margin-bottom: 2rem;">
+            <form onsubmit="searchMiner(event)">
+                <input type="text" id="miner-address" class="address-input"
+                       placeholder="Enter your Salvium address (SC1...)">
+            </form>
+        </div>
+
+        <!-- Miner Info (hidden until address entered) -->
+        <div id="miner-content" style="display: none;">
+            <p class="mono" id="display-address" style="text-align: center; margin-bottom: 1rem;">--</p>
+
+            <!-- Miner Stats -->
+            <div class="stats-grid" style="margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <h3>PPLNS Weight</h3>
+                    <div class="value" id="miner-weight">--</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Share %</h3>
+                    <div class="value" id="miner-percent">--</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Shares in Window</h3>
+                    <div class="value" id="miner-shares">--</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Est. Reward/Block</h3>
+                    <div class="value" id="miner-reward">--</div>
+                </div>
+            </div>
+
+            <!-- Payouts Section -->
+            <div class="blocks-section" style="margin-top: 2rem;">
+                <h2 class="txtmed C1">Recent Payouts</h2>
+                <div id="payouts-container">
+                    <div class="loading">Loading payouts...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Address Message -->
+        <div id="no-address-message" class="message">
+            <h2 class="txtmed C1">Enter Your Address</h2>
+            <p style="margin-top: 1rem;">Enter your Salvium mining address above to view your statistics and payouts.</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let currentAddress = null;
+
+        // Search miner
+        function searchMiner(event) {
+            event.preventDefault();
+            const address = document.getElementById('miner-address').value.trim();
+            if (address) {
+                window.location.href = 'miner.html?address=' + encodeURIComponent(address);
+            }
+        }
+
+        // Render payouts
+        function renderPayouts(payouts) {
+            const container = document.getElementById('payouts-container');
+
+            if (!payouts || payouts.length === 0) {
+                container.innerHTML = '<div class="message">No payouts found. Keep mining to earn rewards!</div>';
+                return;
+            }
+
+            // Sort by block height descending (newest first)
+            payouts.sort((a, b) => (b.block_height || 0) - (a.block_height || 0));
+
+            let totalPaid = 0;
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Block</th>
+                            <th>Amount</th>
+                            <th>Share %</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            for (const payout of payouts) {
+                totalPaid += payout.amount || 0;
+                html += `
+                    <tr>
+                        <td data-label="Block">${payout.block_height || '--'}</td>
+                        <td data-label="Amount">${payout.amount ? Utils.formatSALShort(payout.amount) : '--'}</td>
+                        <td data-label="Share %">${payout.percentage ? payout.percentage.toFixed(4) + '%' : '--'}</td>
+                        <td data-label="Time">${payout.timestamp ? Utils.timeAgo(payout.timestamp) : '--'}</td>
+                    </tr>
+                `;
+            }
+
+            html += '</tbody></table>';
+
+            if (totalPaid > 0) {
+                html = `<div class="info-card" style="margin-bottom: 1rem;">
+                    <strong>Total Paid:</strong> ${Utils.formatSAL(totalPaid)}
+                </div>` + html;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Get pool info for reward calculation
+        async function getPoolInfo() {
+            return await API.getPoolInfo();
+        }
+
+        // Load miner data
+        async function loadMinerData(address) {
+            const [minerInfo, payouts, poolInfo] = await Promise.all([
+                API.getMinerInfo(address),
+                API.getMinerPayouts(address),
+                API.getPoolInfo()
+            ]);
+
+            // Update display address (truncated from API)
+            document.getElementById('display-address').textContent = minerInfo?.address || Utils.truncateAddress(address);
+
+            // Update miner stats
+            if (minerInfo && minerInfo.pplns) {
+                const pplns = minerInfo.pplns;
+                document.getElementById('miner-weight').textContent = pplns.weight ? Utils.formatDifficulty(parseFloat(pplns.weight)) : '0';
+                // API uses 'percentage' not 'percent'
+                const percent = pplns.percentage || pplns.percent || 0;
+                document.getElementById('miner-percent').textContent = percent ? percent.toFixed(4) + '%' : '0%';
+                document.getElementById('miner-shares').textContent = minerInfo.shares_count || '0';
+
+                // Use pre-calculated estimated_payout from API, or calculate from percent
+                if (pplns.estimated_payout) {
+                    document.getElementById('miner-reward').textContent = Utils.formatSALShort(pplns.estimated_payout);
+                } else if (percent && poolInfo && poolInfo.block_reward) {
+                    const estReward = poolInfo.block_reward * (percent / 100);
+                    document.getElementById('miner-reward').textContent = Utils.formatSALShort(estReward);
+                }
+            } else {
+                document.getElementById('miner-weight').textContent = '0';
+                document.getElementById('miner-percent').textContent = '0%';
+                document.getElementById('miner-shares').textContent = '0';
+                document.getElementById('miner-reward').textContent = '--';
+            }
+
+            // Render payouts
+            renderPayouts(payouts);
+        }
+
+        // Initial load
+        async function init() {
+            // Check for address in URL
+            const params = Utils.getUrlParams();
+            if (params.address) {
+                currentAddress = params.address;
+                document.getElementById('miner-address').value = currentAddress;
+                document.getElementById('no-address-message').style.display = 'none';
+                document.getElementById('miner-content').style.display = 'block';
+
+                await loadMinerData(currentAddress);
+
+                // Auto refresh every 60 seconds
+                startAutoRefresh(() => loadMinerData(currentAddress), 60000);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

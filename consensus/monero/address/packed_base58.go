@@ -7,7 +7,7 @@ func (p PackedAddress) String() string {
 }
 
 func (p PackedAddress) MarshalJSON() ([]byte, error) {
-	buf := make([]byte, 0, 97)
+	buf := make([]byte, 0, 150) // Carrot addresses can be up to 143 chars + 2 quotes
 	buf = append(buf, '"')
 	buf = append(buf, p.ToBase58(PackedAddressGlobalNetwork)...)
 	buf = append(buf, '"')

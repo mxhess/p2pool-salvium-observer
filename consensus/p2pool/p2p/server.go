@@ -370,7 +370,7 @@ func (s *Server) UpdateClientConnections() {
 
 	// Special case: when we can't find p2pool peers, scan through monerod peers (try 25 peers at a time)
 	if !hasGoodPeers && len(s.moneroPeerList) > 0 {
-		utils.Logf("P2PServer", "Scanning monerod peers, %d left", len(s.moneroPeerList))
+		utils.Logf("P2PServer", "Scanning salviumd peers, %d left", len(s.moneroPeerList))
 		for i := 0; i < 25 && len(s.moneroPeerList) > 0; i++ {
 			peerList = append(peerList, s.moneroPeerList[len(s.moneroPeerList)-1])
 			s.moneroPeerList = s.moneroPeerList[:len(s.moneroPeerList)-1]

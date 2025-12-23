@@ -174,6 +174,64 @@ func (b *SideData) AppendBinary(preAllocatedBuf []byte, version ShareVersion) (b
 	return buf, nil
 }
 
+// SideChainHashingBlob Same as AppendBinary but optionally zeros out SideChainExtraNonce
+func (b *SideData) SideChainHashingBlob(preAllocatedBuf []byte, version ShareVersion, zeroExtraNonce bool) (buf []byte, err error) {
+	buf = preAllocatedBuf
+	buf = append(buf, b.PublicKey[address.PackedAddressSpend][:]...)
+	buf = append(buf, b.PublicKey[address.PackedAddressView][:]...)
+	if version >= ShareVersion_V2 {
+		buf = append(buf, b.CoinbasePrivateKeySeed[:]...)
+	} else {
+		buf = append(buf, b.CoinbasePrivateKey[:]...)
+	}
+	buf = append(buf, b.Parent[:]...)
+	buf = binary.AppendUvarint(buf, uint64(len(b.Uncles)))
+	for _, uId := range b.Uncles {
+		buf = append(buf, uId[:]...)
+	}
+	buf = binary.AppendUvarint(buf, b.Height)
+	buf = binary.AppendUvarint(buf, b.Difficulty.Lo)
+	buf = binary.AppendUvarint(buf, b.Difficulty.Hi)
+	buf = binary.AppendUvarint(buf, b.CumulativeDifficulty.Lo)
+	buf = binary.AppendUvarint(buf, b.CumulativeDifficulty.Hi)
+
+	if version >= ShareVersion_V3 {
+		// merkle proof
+		if len(b.MerkleProof) > merge_mining.MaxChainsLog2 {
+			return nil, fmt.Errorf("merkle proof too large: %d > %d", len(b.MerkleProof), merge_mining.MaxChainsLog2)
+		}
+		buf = append(buf, uint8(len(b.MerkleProof)))
+		for _, h := range b.MerkleProof {
+			buf = append(buf, h[:]...)
+		}
+
+		// merge mining extra
+		if len(b.MergeMiningExtra) > merge_mining.MaxChains {
+			return nil, fmt.Errorf("merge mining extra size too big: %d > %d", len(b.MergeMiningExtra), merge_mining.MaxChains)
+		}
+		buf = binary.AppendUvarint(buf, uint64(len(b.MergeMiningExtra)))
+		for i := range b.MergeMiningExtra {
+			buf = append(buf, b.MergeMiningExtra[i].ChainId[:]...)
+			buf = binary.AppendUvarint(buf, uint64(len(b.MergeMiningExtra[i].Data)))
+			buf = append(buf, b.MergeMiningExtra[i].Data...)
+		}
+	}
+
+	if version >= ShareVersion_V2 {
+		buf = binary.LittleEndian.AppendUint32(buf, uint32(b.ExtraBuffer.SoftwareId))
+		buf = binary.LittleEndian.AppendUint32(buf, uint32(b.ExtraBuffer.SoftwareVersion))
+		buf = binary.LittleEndian.AppendUint32(buf, b.ExtraBuffer.RandomNumber)
+		// Optionally zero out SideChainExtraNonce for template ID calculation
+		if zeroExtraNonce {
+			buf = binary.LittleEndian.AppendUint32(buf, 0)
+		} else {
+			buf = binary.LittleEndian.AppendUint32(buf, b.ExtraBuffer.SideChainExtraNonce)
+		}
+	}
+
+	return buf, nil
+}
+
 func (b *SideData) FromReader(reader utils.ReaderAndByteReader, version ShareVersion) (err error) {
 	var (
 		uncleCount uint64

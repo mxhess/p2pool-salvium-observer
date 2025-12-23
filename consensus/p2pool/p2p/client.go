@@ -702,7 +702,7 @@ func (c *Client) OnConnection() {
 						}
 					} else if peerHeight > ourHeight {
 						if peerHeight >= (ourHeight + 2) {
-							utils.Logf("P2PClient", "Peer %s is ahead on mainchain (mainchain height %d, your height %d). Is monerod stuck or lagging?", c.AddressPort.String(), peerHeight, ourHeight)
+							utils.Logf("P2PClient", "Peer %s is ahead on mainchain (mainchain height %d, your height %d). Is salviumd stuck or lagging?", c.AddressPort.String(), peerHeight, ourHeight)
 						}
 					} else {
 						utils.Logf("P2PClient", "Peer %s is mining on an alternative mainchain tip (mainchain height %d, previous_id = %s)", c.AddressPort.String(), peerHeight, poolBlock.Main.PreviousId)

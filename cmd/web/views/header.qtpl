@@ -2,7 +2,7 @@
 <div>
     <div class="center" style="text-align: center">
         <h1 class="center">
-            <a href="/">
+            <a href="{%= ctx.Path("/") %}">
                 {% if ctx.SiteTitle == "" %}
                     <span style="color: #40E0D0;">WhiskyMine</span> 
                     <span style="display: inline-block; width: 8px; height: 8px; background-color: #0AEB85; border-radius: 50%; margin: 0 8px; vertical-align: middle;"></span>
@@ -19,9 +19,7 @@
             ::
             <a href="https://github.com/salvium-io/salvium" style="color: #40E0D0;">What is Salvium?</a>
             ::
-            <a href="https://whiskymine.io" style="color: #40E0D0;">WhiskyMine Pool</a>
-            ::
-            <a href="/api" style="color: #40E0D0;">Observer API Documentation</a>
+            <a href="{%= ctx.Path("/api") %}" style="color: #40E0D0;">Observer API Documentation</a>
         </h4>
         {% if ctx.Socials.Irc.Link != "" %}
         <h4 style="font-size: 16px; margin: 4px 0px 0px; font-weight: normal; color: #818181;">

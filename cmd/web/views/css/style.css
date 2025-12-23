@@ -2,8 +2,8 @@
 /* WhiskyMine design system */
 @font-face {
     font-family: 'GothamCondensed';
-    src: url('src/font/GothamCondensed-Medium.woff2') format('woff2'),
-         url('src/font/GothamCondensed-Medium.woff') format('woff');
+    src: url('/src/font/GothamCondensed-Medium.woff2') format('woff2'),
+         url('/src/font/GothamCondensed-Medium.woff') format('woff');
     font-weight: normal;
     font-style: normal;
 }
@@ -60,16 +60,16 @@ body {
     font-weight: 400;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: var(--aged-paper);
-    color: var(--deep-brown);
+    background-color: #3a2820;
+    color: #F5DEB3;
     min-height: 100vh;
     transition: all 0.3s ease;
     padding-bottom: 80px;
 }
 
 body.dark {
-    background-color: var(--dark-mahogany);
-    color: var(--wheat-text);
+    background-color: #2C1810;
+    color: #F5DEB3;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -1118,7 +1118,7 @@ body.dark table {
 
 table th,
 table td {
-    padding: 1rem;
+    padding: 0.5rem;
     text-align: left;
     border-bottom: 1px solid rgba(139, 69, 19, 0.1);
     font-size: 14px;
@@ -1162,7 +1162,7 @@ body.dark .data-table {
 
 .data-table th,
 .data-table td {
-    padding: 1rem;
+    padding: 0.5rem;
     text-align: left;
     border-bottom: 1px solid rgba(139, 69, 19, 0.1);
     font-size: 14px;

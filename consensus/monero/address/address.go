@@ -221,24 +221,24 @@ func checksumHash(data []byte) (sum [ChecksumLength]byte) {
 }
 
 func FromRawAddress(typeNetwork uint8, spend, view crypto.PublicKey) *Address {
-	// Convert legacy uint8 network to uint64 tag
+	// Convert legacy uint8 network to uint64 tag using Carrot format
 	var tag uint64
 	switch typeNetwork {
 	case monero.MainNetwork:
-		tag = monero.SalviumMainAddress
+		tag = monero.CarrotMainAddress // Use Carrot "SC1" format (0x180c96)
 	case monero.TestNetwork:
-		tag = monero.SalviumTestAddress
+		tag = monero.CarrotTestAddress
 	case monero.StageNetwork:
-		tag = monero.SalviumStageAddress
+		tag = monero.CarrotStageAddress
 	default:
 		return nil
 	}
-	
+
 	return &Address{
 		TypeNetwork: tag,
 		SpendPub:    spend.AsBytes(),
 		ViewPub:     view.AsBytes(),
-		IsCarrot:    false,
+		IsCarrot:    true, // Mark as Carrot address
 	}
 }
 
@@ -277,7 +277,7 @@ func (a *Address) ToBase58() []byte {
 	copy(data[prefixLen+64:], a.checksum[:])
 	
 	// Encode to base58
-	buf := make([]byte, 0, 140) // Salvium addresses can be longer
+	buf := make([]byte, 0, 150) // Carrot addresses can be up to 143 chars
 	return base58.EncodeMoneroBase58PreAllocated(buf, data)
 }
 

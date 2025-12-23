@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Found Blocks - P2Pool Salvium</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+    <div class="content center">
+        <nav style="margin-bottom: 2rem; text-align: center;">
+            <a href="." class="nav-item">Home</a> |
+            <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="miners.html" class="nav-item">Miners</a> |
+            <a href="calculator.html" class="nav-item">Calculator</a>
+        </nav>
+
+        <h1 style="text-align: center; margin-bottom: 2rem;">Found Blocks</h1>
+
+        <div class="stats-grid" style="margin-bottom: 2rem;">
+            <div class="stat-card">
+                <h3>Total Found</h3>
+                <div class="value" id="total-found">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Last 24h</h3>
+                <div class="value" id="blocks-24h">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Average Effort</h3>
+                <div class="value" id="avg-effort">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Last Block</h3>
+                <div class="value" id="last-block">--</div>
+            </div>
+        </div>
+
+        <div id="blocks-container">
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        async function load() {
+            const blocks = await API.getFoundBlocks(100);
+            const container = document.getElementById('blocks-container');
+
+            if (!blocks || blocks.length === 0) {
+                container.innerHTML = '<p>No blocks found yet</p>';
+                return;
+            }
+
+            // Sort by height ascending first to calculate effort
+            blocks.sort((a, b) => (a.height || 0) - (b.height || 0));
+
+            // Calculate effort for each block (round_hashes = current - previous total_hashes)
+            for (let i = 0; i < blocks.length; i++) {
+                if (i === 0) {
+                    blocks[i].effort = null;
+                } else {
+                    const prevHashes = parseFloat(blocks[i-1].total_hashes || 0);
+                    const currHashes = parseFloat(blocks[i].total_hashes || 0);
+                    const roundHashes = currHashes - prevHashes;
+                    const diff = parseFloat(blocks[i].difficulty || 1);
+                    blocks[i].effort = (roundHashes / diff) * 100;
+                }
+            }
+
+            // Reverse for display (newest first)
+            blocks.reverse();
+
+            // Stats
+            const now = Date.now() / 1000;
+            const blocks24h = blocks.filter(b => b.timestamp && (now - b.timestamp) < 86400).length;
+
+            document.getElementById('total-found').textContent = blocks.length;
+            document.getElementById('blocks-24h').textContent = blocks24h;
+
+            // Calculate average effort (skip first block which has no effort)
+            let totalEffort = 0;
+            let effortCount = 0;
+            for (const block of blocks) {
+                if (block.effort !== null) {
+                    totalEffort += block.effort;
+                    effortCount++;
+                }
+            }
+            if (effortCount > 0) {
+                document.getElementById('avg-effort').textContent = (totalEffort / effortCount).toFixed(1) + '%';
+            }
+
+            // Last block time
+            if (blocks.length > 0 && blocks[0].timestamp) {
+                document.getElementById('last-block').textContent = Utils.timeAgo(blocks[0].timestamp);
+            }
+
+            let html = '<table class="data-table"><thead><tr><th>Salvium Height</th><th>Block Hash</th><th>Difficulty</th><th>Effort</th><th>Age</th></tr></thead><tbody>';
+            for (const block of blocks) {
+                const height = block.height || block.main_height || '--';
+                const hash = block.hash || '--';
+                const hashShort = hash.length > 16 ? hash.substring(0, 8) + '...' + hash.substring(hash.length - 8) : hash;
+                const effort = block.effort !== null ? block.effort.toFixed(1) + '%' : '--';
+                const explorerUrl = hash !== '--' ? `https://explorer.salvium.io/block/${hash}` : '#';
+                html += `<tr id="block-${height}">
+                    <td><a href="https://explorer.salvium.io/block/${height}" target="_blank" rel="noopener">${height}</a></td>
+                    <td class="mono"><a href="${explorerUrl}" target="_blank" rel="noopener">${hashShort}</a></td>
+                    <td>${block.difficulty ? Utils.formatDifficulty(parseFloat(block.difficulty)) : '--'}</td>
+                    <td>${effort}</td>
+                    <td>${block.timestamp ? Utils.timeAgo(block.timestamp) : '--'}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        load();
+        startAutoRefresh(load, 60000);
+    </script>
+</body>
+</html>

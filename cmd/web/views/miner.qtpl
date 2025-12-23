@@ -43,15 +43,16 @@ type MinerPage struct {
 {% endfunc %}
 
 {% func (p *MinerPage) Content() %}
+{% code ctx := p.Context() %}
 
 {% code var minerAddress = get_payout(p.Miner.Address, p.Miner.PayoutAddress) %}
 {% code var minerAddressStr = minerAddress.ToBase58() %}
 
 <div style="text-align: center; font-weight: bold;">
     {% if p.Refresh > 0 %}
-    <a href="/miner/{%z= minerAddressStr %}">Autorefresh is ON ({%d p.Refresh %} s)</a>
+    <a href="{%s ctx.Path("/miner/") %}{%z= minerAddressStr %}">Autorefresh is ON ({%d p.Refresh %} s)</a>
     {% else %}
-    <a href="/miner/{%z= minerAddressStr %}?refresh">Autorefresh is OFF</a>
+    <a href="{%s ctx.Path("/miner/") %}{%z= minerAddressStr %}?refresh">Autorefresh is OFF</a>
     {% endif %}
 </div>
 
@@ -68,7 +69,7 @@ type MinerPage struct {
         <p>You can also verify you are reachable by opening ports with the tool below.</p>
         <br/>
 
-        <form action="/calculate-share-time" method="get">
+        <form action="{%s p.Context().Path("/calculate-share-time") %}" method="get">
             <h3>Average Share Time Calculator</h3>
             <label for="hashrate">Your Hashrate</label><br/>
             <input type="numeric" name="hashrate" id="hashrate" placeholder="100" size="8" class="mono" value=""/>
@@ -83,7 +84,7 @@ type MinerPage struct {
         </form>
 
 
-        <form action="/connectivity-check" method="get">
+        <form action="{%s p.Context().Path("/connectivity-check") %}" method="get">
             <h3>Connectivity Check</h3>
             <div>
                 <label for="address">IP Address and Port</label><br/>
@@ -121,7 +122,7 @@ type MinerPage struct {
     </p>
     {% if p.Miner.Address.Compare(minerAddress) != 0 %}
     <p class="small">
-        <strong>P2Pool Address:</strong> <span class="mono small"><a href="/miner/{%z= p.Miner.Address.ToBase58() %}">{%z= p.Miner.Address.ToBase58() %}</a></span><br/>
+        <strong>P2Pool Address:</strong> <span class="mono small"><a href="{%s ctx.Path("/miner/") %}{%z= p.Miner.Address.ToBase58() %}">{%z= p.Miner.Address.ToBase58() %}</a></span><br/>
         <small>
             This is the derived main address to be able to get P2Pool payouts on a Salvium subaddress.<br/>
             Statistics are tracked internally via this address. P2Pool will see this address, but payouts will be sent on your subaddress.
@@ -143,7 +144,7 @@ type MinerPage struct {
     {% endif %}
 
     {% if !minerAddress.IsSubaddress() %}
-    <p><small><a href="/miner-options/{%z= minerAddressStr %}#mineralias">[Change Miner Alias]</a> :: <a href="/miner-options/{%z= minerAddressStr %}#webhooks">[Configure WebHook notifications]</a></small></p>
+    <p><small><a href="{%s ctx.Path("/miner-options/") %}{%z= minerAddressStr %}#mineralias">[Change Miner Alias]</a> :: <a href="{%s ctx.Path("/miner-options/") %}{%z= minerAddressStr %}#webhooks">[Configure WebHook notifications]</a></small></p>
     {% endif %}
 
     <table class="center" style="max-width: calc(15em + 15em + 15em + 15em + 15em)">
@@ -228,7 +229,7 @@ type MinerPage struct {
 <div style="text-align: center">
     <h2>Most recent payouts</h2>
     {%= TemplatePayoutsSlice(p.Context(), minerAddress, p.LastPayouts) %}
-    <div class="center"><a href="/payouts/{%z= minerAddressStr %}">[show all historical payouts]</a></div>
+    <div class="center"><a href="{%s ctx.Path("/payouts/") %}{%z= minerAddressStr %}">[show all historical payouts]</a></div>
 </div>
 
 <hr/>

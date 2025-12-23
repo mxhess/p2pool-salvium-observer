@@ -204,6 +204,14 @@ func (c *SideChain) fillPoolBlockTransactionParentIndices(block *PoolBlock) {
 
 func (c *SideChain) isPoolBlockTransactionKeyIsDeterministic(block *PoolBlock) bool {
 	kP := c.derivationCache.GetDeterministicTransactionKey(block.GetPrivateKeySeed(), block.Main.PreviousId)
+
+	// For Carrot v1 (majorVersion >= 10), only validate the private key
+	// The ephemeral public key (D_e) uses different derivation with anchor + Carrot crypto
+	if block.Main.MajorVersion >= 10 {
+		return block.Side.CoinbasePrivateKey == kP.PrivateKey.AsBytes()
+	}
+
+	// For pre-Carrot blocks, validate both public and private keys
 	return bytes.Compare(block.CoinbaseExtra(SideCoinbasePublicKey), kP.PublicKey.AsSlice()) == 0 && block.Side.CoinbasePrivateKey == kP.PrivateKey.AsBytes()
 }
 
@@ -365,8 +373,12 @@ func (c *SideChain) PoolBlockExternalVerify(block *PoolBlock) (missingBlocks []t
 		mmTag := block.MergeMiningTag()
 		auxiliarySlot := merge_mining.GetAuxiliarySlot(c.Consensus().Id, mmTag.Nonce, mmTag.NumberAuxiliaryChains)
 
-		if !block.Side.MerkleProof.Verify(templateId, int(auxiliarySlot), int(mmTag.NumberAuxiliaryChains), mmTag.RootHash) {
-			return nil, fmt.Errorf("could not verify template id %x merkle proof against merkle tree root hash %x (number of chains = %d, nonce = %d, auxiliary slot = %d)", templateId.Slice(), mmTag.RootHash.Slice(), mmTag.NumberAuxiliaryChains, mmTag.Nonce, auxiliarySlot), true
+		// For merkle proof verification, use the actual sidechain ID (with real extra_nonce), not the template ID (with zeroed extra_nonce)
+		// This matches p2pool-salvium's calc_sidechain_hash(extra_nonce) behavior
+		sidechainId := c.Consensus().CalculateSideChainId(block)
+
+		if !block.Side.MerkleProof.Verify(sidechainId, int(auxiliarySlot), int(mmTag.NumberAuxiliaryChains), mmTag.RootHash) {
+			return nil, fmt.Errorf("could not verify sidechain id %x merkle proof against merkle tree root hash %x (number of chains = %d, nonce = %d, auxiliary slot = %d)", sidechainId.Slice(), mmTag.RootHash.Slice(), mmTag.NumberAuxiliaryChains, mmTag.Nonce, auxiliarySlot), true
 		}
 	} else {
 		if templateId != types.HashFromBytes(block.CoinbaseExtra(SideIdentifierHash)) {

@@ -1,31 +1,33 @@
+# /etc/systemd/system/p2pool-observer-daemon.service
+
 [Unit]
 Description=P2Pool Salvium Observer Daemon
 Documentation=https://github.com/salvium/p2pool-salvium-observer
-After=network-online.target redis.service salviumd.service
+After=network-online.target valkey.service salviumd.service
 Wants=network-online.target
-Requires=redis.service
+Requires=valkey.service
 
 [Service]
 Type=simple
 User=p2pool
 Group=p2pool
-WorkingDirectory=/opt/p2pool-observer
+WorkingDirectory=/srv/p2pool-observer
 
 # Main process
 # Example with 4 Salvium RPC endpoints (3 public seeds + 1 local):
-ExecStart=/opt/p2pool-observer/daemon \
+ExecStart=/srv/p2pool-observer/daemon \
   --salvium-rpc=http://127.0.0.1:19081,http://seed01.salvium.io:19081,http://seed02.salvium.io:19081,http://seed03.salvium.io:19081 \
-  --data-api=/var/lib/p2pool/data-api \
-  --cache=/var/lib/p2pool/p2pool.cache \
+  --data-api=/srv/p2pool/data-api \
+  --cache=/srv/p2pool/p2pool.cache \
   --redis=localhost:6379 \
   --full-mode
 
 # Alternative: Single endpoint (backward compatible)
-# ExecStart=/opt/p2pool-observer/daemon \
+# ExecStart=/srv/p2pool-observer/daemon \
 #   --host=127.0.0.1 \
 #   --rpc-port=19081 \
-#   --data-api=/var/lib/p2pool/data-api \
-#   --cache=/var/lib/p2pool/p2pool.cache \
+#   --data-api=/srv/p2pool/data-api \
+#   --cache=/srv/p2pool/p2pool.cache \
 #   --redis=localhost:6379 \
 #   --full-mode
 
@@ -43,12 +45,12 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/p2pool
+ReadWritePaths=/srv/p2pool /srv/p2pool-observer
 
 # Resource limits
 LimitNOFILE=65535
-# Memory: 2.3GB RandomX (full) + 190MB buffer + 100MB overhead = ~2.6GB, set to 3.5GB for safety
-MemoryMax=3500M
+# Memory: 2.3GB RandomX (full) + cache processing + Redis buffering = ~5GB needed
+MemoryMax=6G
 
 # Logging
 StandardOutput=journal
@@ -57,3 +59,4 @@ SyslogIdentifier=p2pool-observer-daemon
 
 [Install]
 WantedBy=multi-user.target
+

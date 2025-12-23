@@ -16,19 +16,20 @@ type PayoutsPage struct {
 {% endfunc %}
 
 {% func (p *PayoutsPage) Content() %}
+{% code ctx := p.Context() %}
 
 
 <div style="text-align: center; font-weight: bold;">
     {% if p.Refresh > 0 %}
-    <a href="/payouts/{%z= p.Miner.ToBase58() %}">Autorefresh is ON ({%d p.Refresh %} s)</a>
+    <a href="{%s ctx.Path("/payouts/") %}{%z= p.Miner.ToBase58() %}">Autorefresh is ON ({%d p.Refresh %} s)</a>
     {% else %}
-    <a href="/payouts/{%z= p.Miner.ToBase58() %}?refresh">Autorefresh is OFF</a>
+    <a href="{%s ctx.Path("/payouts/") %}{%z= p.Miner.ToBase58() %}?refresh">Autorefresh is OFF</a>
     {% endif %}
 </div>
 
 <div style="text-align: center">
     <h2>Historical miner payouts</h2>
-    <p><strong>Payout Address:</strong> <a href="/miner/{%z= p.Miner.ToBase58() %}"><span class="mono small">{%z= p.Miner.ToBase58() %}</span></a></p>
+    <p><strong>Payout Address:</strong> <a href="{%s ctx.Path("/miner/") %}{%z= p.Miner.ToBase58() %}"><span class="mono small">{%z= p.Miner.ToBase58() %}</span></a></p>
 
     {% code var total uint64 %}
 

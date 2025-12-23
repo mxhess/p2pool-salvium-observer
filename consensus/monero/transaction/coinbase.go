@@ -102,7 +102,8 @@ func (c *CoinbaseTransaction) FromReader(reader utils.ReaderAndByteReader, canBe
 		return err
 	}
 
-	if c.UnlockTime != (c.GenHeight + monero.MinerRewardUnlockTime) {
+	// Salvium: unlock_time is a fixed value (60), not GenHeight + 60 like Monero
+	if c.UnlockTime != monero.MinerRewardUnlockTime {
 		return errors.New("invalid unlock time")
 	}
 
@@ -115,6 +116,9 @@ func (c *CoinbaseTransaction) FromReader(reader utils.ReaderAndByteReader, canBe
 				c.AuxiliaryData.OutputsBlobSize += 1 + types.HashSize + 1
 			case TxOutToKey:
 				c.AuxiliaryData.OutputsBlobSize += 1 + types.HashSize
+			case TxOutToCarrotV1:
+				// Salvium Carrot v1: type + ephemeral_key + asset_len + "SAL1" + 3-byte view_tag + 16-byte encrypted_anchor
+				c.AuxiliaryData.OutputsBlobSize += 1 + types.HashSize + 1 + 4 + 3 + 16
 			default:
 				return fmt.Errorf("unknown %d TXOUT key", o.Type)
 			}
@@ -153,15 +157,7 @@ func (c *CoinbaseTransaction) FromReader(reader utils.ReaderAndByteReader, canBe
 		return errors.New("bytes leftover in extra data")
 	}
 
-	if err = binary.Read(reader, binary.LittleEndian, &c.ExtraBaseRCT); err != nil {
-		return err
-	}
-
-	if c.ExtraBaseRCT != 0 {
-		return errors.New("invalid extra base RCT")
-	}
-
-	// Salvium: Read transaction type and additional fields (v3+)
+	// Salvium Carrot v1: Read tx_type and amount_burnt BEFORE ExtraBaseRCT
 	if c.Version >= 3 {
 		var txType uint64
 		if txType, err = utils.ReadCanonicalUvarint(reader); err != nil {
@@ -169,12 +165,18 @@ func (c *CoinbaseTransaction) FromReader(reader utils.ReaderAndByteReader, canBe
 		}
 		c.TxType = TransactionType(txType)
 
-		// Read amount_burnt if type is not UNSET or PROTOCOL
-		if c.TxType != TxTypeUnset && c.TxType != TxTypeProtocol {
-			if c.AmountBurnt, err = utils.ReadCanonicalUvarint(reader); err != nil {
-				return err
-			}
+		// Read amount_burnt (always present in Carrot v1)
+		if c.AmountBurnt, err = utils.ReadCanonicalUvarint(reader); err != nil {
+			return err
 		}
+	}
+
+	if err = binary.Read(reader, binary.LittleEndian, &c.ExtraBaseRCT); err != nil {
+		return err
+	}
+
+	if c.ExtraBaseRCT != 0 {
+		return errors.New("invalid extra base RCT")
 	}
 
 	return nil
@@ -245,6 +247,14 @@ func (c *CoinbaseTransaction) SideChainHashingBlob(preAllocatedBuf []byte, zeroT
 
 	buf = binary.AppendUvarint(buf, uint64(c.Extra.BufferLength()))
 	buf, _ = c.Extra.SideChainHashingBlob(buf, zeroTemplateId)
+
+	// For Salvium Carrot v1 (TxType != 0), write tx_type and amount_burnt before ExtraBaseRCT
+	// This matches pool_block.cpp:276-283
+	if c.TxType != 0 {
+		buf = binary.AppendUvarint(buf, uint64(c.TxType))
+		buf = binary.AppendUvarint(buf, c.AmountBurnt)
+	}
+
 	buf = append(buf, c.ExtraBaseRCT)
 
 	return buf, nil

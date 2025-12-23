@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2Pool Salvium</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+    <div class="content center">
+        <!-- Navigation -->
+        <nav style="margin-bottom: 2rem; text-align: center;">
+            <a href="." class="nav-item">Home</a> |
+            <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="miners.html" class="nav-item">Miners</a> |
+            <a href="calculator.html" class="nav-item">Calculator</a>
+        </nav>
+
+        <h1 style="text-align: center; margin-bottom: 2rem;">P2Pool Salvium Observer</h1>
+
+        <!-- Address Search -->
+        <div class="address-section" style="margin-bottom: 2rem;">
+            <form onsubmit="searchMiner(event)">
+                <input type="text" id="miner-address" class="address-input"
+                       placeholder="Enter your Salvium address (SC1...)">
+            </form>
+        </div>
+
+        <!-- Stats Row 1: Heights & Hashrates -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>P2Pool Height</h3>
+                <div class="value" id="sidechain-height">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Pool Hashrate</h3>
+                <div class="value" id="pool-hashrate">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Salvium Height</h3>
+                <div class="value" id="mainchain-height">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Network Hashrate</h3>
+                <div class="value" id="network-hashrate">--</div>
+            </div>
+        </div>
+
+        <!-- Stats Row 2: Difficulty & Blocks -->
+        <div class="stats-grid" style="margin-top: 1rem;">
+            <div class="stat-card">
+                <h3>P2Pool Difficulty</h3>
+                <div class="value" id="sidechain-diff">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Pool % of Network</h3>
+                <div class="value" id="pool-percent">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Network Difficulty</h3>
+                <div class="value" id="network-diff">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Blocks Found</h3>
+                <div class="value" id="blocks-found">--</div>
+            </div>
+        </div>
+
+        <!-- Stats Row 3: Mining Stats -->
+        <div class="stats-grid" style="margin-top: 1rem;">
+            <div class="stat-card">
+                <h3>Window Miners</h3>
+                <div class="value" id="active-miners">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Current Effort</h3>
+                <div class="value" id="current-effort">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Window Blocks</h3>
+                <div class="value" id="window-blocks">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Last Block Found</h3>
+                <div class="value" id="last-block">--</div>
+            </div>
+        </div>
+
+        <!-- Recent Found Blocks -->
+        <div class="blocks-section">
+            <h2 class="txtmed C1">Recent Found Blocks</h2>
+            <div id="found-blocks-container">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Recent Shares -->
+        <div class="blocks-section" style="margin-top: 2rem;">
+            <h2 class="txtmed C1">Recent Shares</h2>
+            <div id="recent-shares-container">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        function searchMiner(event) {
+            event.preventDefault();
+            const address = document.getElementById('miner-address').value.trim();
+            if (address) {
+                window.location.href = 'miner.html?address=' + encodeURIComponent(address);
+            }
+        }
+
+        function renderFoundBlocks(blocks) {
+            const container = document.getElementById('found-blocks-container');
+            if (!blocks || blocks.length === 0) {
+                container.innerHTML = '<p>No blocks found yet</p>';
+                return;
+            }
+
+            // Sort by height ascending first to calculate effort correctly
+            const sorted = [...blocks].sort((a, b) => (a.height || 0) - (b.height || 0));
+
+            // Calculate effort for each block (round_hashes = current - previous total_hashes)
+            for (let i = 0; i < sorted.length; i++) {
+                if (i === 0) {
+                    sorted[i].effort = null; // Can't calculate first block's effort
+                } else {
+                    const prevHashes = parseFloat(sorted[i-1].total_hashes || 0);
+                    const currHashes = parseFloat(sorted[i].total_hashes || 0);
+                    const roundHashes = currHashes - prevHashes;
+                    const diff = parseFloat(sorted[i].difficulty || 1);
+                    sorted[i].effort = (roundHashes / diff) * 100;
+                }
+            }
+
+            // Now reverse for display (newest first)
+            sorted.reverse();
+
+            let html = '<table class="data-table"><thead><tr><th>Salvium Height</th><th>Block Hash</th><th>Difficulty</th><th>Effort</th><th>Age</th></tr></thead><tbody>';
+            for (const block of sorted.slice(0, 10)) {
+                const height = block.height || '--';
+                const hash = block.hash || '--';
+                const hashShort = hash.length > 16 ? hash.substring(0, 8) + '...' + hash.substring(hash.length - 8) : hash;
+                const effort = block.effort !== null ? block.effort.toFixed(1) + '%' : '--';
+                const explorerUrl = hash !== '--' ? `https://explorer.salvium.io/block/${hash}` : '#';
+                html += `<tr>
+                    <td><a href="blocks.html#${height}">${height}</a></td>
+                    <td class="mono"><a href="${explorerUrl}" target="_blank" rel="noopener">${hashShort}</a></td>
+                    <td>${block.difficulty ? Utils.formatDifficulty(parseFloat(block.difficulty)) : '--'}</td>
+                    <td>${effort}</td>
+                    <td>${block.timestamp ? Utils.timeAgo(block.timestamp) : '--'}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function renderRecentShares(shares) {
+            const container = document.getElementById('recent-shares-container');
+            if (!shares || shares.length === 0) {
+                container.innerHTML = '<p>No recent shares</p>';
+                return;
+            }
+
+            let html = '<table class="data-table"><thead><tr><th>P2Pool Height</th><th>Salvium Height</th><th>Found By</th><th>Difficulty</th><th>Age</th></tr></thead><tbody>';
+            for (const share of shares.slice(0, 15)) {
+                const addr = share.miner || share.miner_address || '--';
+                const sideHeight = share.side_height || share.height || '--';
+                const mainHeight = share.main_height || '--';
+                html += `<tr>
+                    <td>${sideHeight}</td>
+                    <td>${mainHeight}</td>
+                    <td class="miner-address">${Utils.truncateAddress(addr)}</td>
+                    <td>${share.difficulty ? Utils.formatDifficulty(share.difficulty) : '--'}</td>
+                    <td>${share.timestamp ? Utils.timeAgo(share.timestamp) : '--'}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function update() {
+            const info = await API.getPoolInfo();
+            if (info) {
+                // Heights
+                if (info.sidechain_height) document.getElementById('sidechain-height').textContent = info.sidechain_height.toLocaleString();
+                if (info.mainchain_height) document.getElementById('mainchain-height').textContent = info.mainchain_height.toLocaleString();
+
+                // Hashrates
+                if (info.pool_hashrate) document.getElementById('pool-hashrate').textContent = Utils.formatHashrate(info.pool_hashrate);
+                // Calculate network hashrate from difficulty (hashrate ≈ difficulty / block_time)
+                if (info.mainchain_difficulty) {
+                    const networkHashrate = info.mainchain_difficulty / 120; // 120s block time
+                    document.getElementById('network-hashrate').textContent = Utils.formatHashrate(networkHashrate);
+                }
+
+                // Difficulties
+                if (info.sidechain_difficulty) document.getElementById('sidechain-diff').textContent = Utils.formatDifficulty(info.sidechain_difficulty);
+                if (info.mainchain_difficulty) document.getElementById('network-diff').textContent = Utils.formatDifficulty(info.mainchain_difficulty);
+
+                // Pool % of network
+                if (info.pool_hashrate && info.mainchain_difficulty) {
+                    const networkHashrate = info.mainchain_difficulty / 120;
+                    const poolPercent = (info.pool_hashrate / networkHashrate) * 100;
+                    document.getElementById('pool-percent').textContent = poolPercent.toFixed(2) + '%';
+                }
+
+                // Mining stats
+                if (info.miners !== undefined) document.getElementById('active-miners').textContent = info.miners;
+                if (info.blocks_found !== undefined) document.getElementById('blocks-found').textContent = info.blocks_found;
+                if (info.last_block_found_time) document.getElementById('last-block').textContent = Utils.timeAgo(info.last_block_found_time);
+
+                // Window blocks (blocks + uncles)
+                const pplns = info.pplns_window;
+                if (pplns) {
+                    const windowBlocks = (pplns.blocks || pplns.blocks_included || 0);
+                    const windowUncles = (pplns.uncles || pplns.uncles_included || 0);
+                    document.getElementById('window-blocks').textContent = `${windowBlocks} (+${windowUncles} uncles)`;
+                }
+
+                // Effort
+                const effort = info.effort?.current_effort ?? info.effort?.current ?? info.current_effort;
+                if (effort !== undefined) document.getElementById('current-effort').textContent = effort.toFixed(1) + '%';
+            }
+
+            const blocks = await API.getFoundBlocks(10);
+            renderFoundBlocks(blocks);
+
+            const shares = await API.getSideBlocks(15);
+            renderRecentShares(shares);
+        }
+
+        update();
+        startAutoRefresh(update, 30000);
+    </script>
+</body>
+</html>

@@ -73,5 +73,5 @@ func (p *BasePage) SetContext(ctx *GlobalRequestContext) {
 }
 %}
 {% func (p *BasePage) Style() %}
-{%s= styleCssContent %}
+{%s styleCssContent %}
 {% endfunc %}

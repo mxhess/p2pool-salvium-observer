@@ -14,13 +14,13 @@ type IndexPage struct {
 	FoundBlocks []*index.FoundBlock
 }
 %}
-
 {% func (p *IndexPage) Content() %}
+{% code ctx := p.Context() %}
 <div style="text-align: center; font-weight: bold;">
     {% if p.Refresh > 0 %}
-    <a href="/">Autorefresh is ON ({%d p.Refresh %} s)</a>
+    <a href="{%= ctx.Path("/") %}">Autorefresh is ON ({%d p.Refresh %} s)</a>
     {% else %}
-    <a href="/?refresh">Autorefresh is OFF</a>
+    <a href="{%= ctx.Path("/?refresh") %}">Autorefresh is OFF</a>
     {% endif %}
 </div>
 
@@ -35,9 +35,9 @@ type IndexPage struct {
             <th style="width: 15em">Salvium Hashrate</th>
         </tr>
         <tr>
-            <td title="{%= hex(p.Context(), p.Context().Pool.SideChain.LastBlock.TemplateId) %}"><a href="/share/{%= hex(p.Context(), p.Context().Pool.SideChain.LastBlock.TemplateId) %}">{%dul p.Context().Pool.SideChain.LastBlock.SideHeight %}</a></td>
+            <td title="{%= hex(p.Context(), p.Context().Pool.SideChain.LastBlock.TemplateId) %}">{%dul p.Context().Pool.SideChain.LastBlock.SideHeight %}</td>
             <td>{%s si_units(diff_hashrate(p.Context().Pool.SideChain.LastBlock.Difficulty, p.Context().Consensus.TargetBlockTime), 2) %}H/s</td>
-            <td title="{%= hex(p.Context(), p.Context().Pool.MainChain.Id) %}"><a href="/b/{%s benc(p.Context().Pool.MainChain.Height) %}">{%dul p.Context().Pool.MainChain.Height %}</a></td>
+            <td><a href="https://explorer.salvium.io/block/{%dul p.Context().Pool.MainChain.Height %}" target="_blank" rel="noopener" style="color: #40E0D0;">{%dul p.Context().Pool.MainChain.Height %}</a></td>
             <td>{%s si_units(diff_hashrate(p.Context().Pool.MainChain.Difficulty, uint64(p.Context().Pool.MainChain.Consensus.BlockTime)), 2) %}H/s</td>
         </tr>
         <tr><th colspan="4">&nbsp;</th></tr>
@@ -78,13 +78,13 @@ type IndexPage struct {
         </tr>
         <tr><th colspan="4">&nbsp;</th></tr>
         <tr>
-            <th title="Current miners on P2Pool PPLNS window"><a href="/miners">Window Miners</a></th>
+            <th title="Current miners on P2Pool PPLNS window"><a href="{%= ctx.Path("/miners") %}">Window Miners</a></th>
             <th>Current Effort</th>
             <th>Window Blocks</th>
             <th>Last Share</th>
         </tr>
         <tr>
-            <td><a href="/miners">{%d p.Context().Pool.SideChain.Window.Miners %}</a></td>
+            <td><a href="{%= ctx.Path("/miners") %}">{%d p.Context().Pool.SideChain.Window.Miners %}</a></td>
             <td style="font-weight:bolder; color: {%s effort_color(p.Context().Pool.SideChain.Effort.Current) %};">
                 {%f.2 p.Context().Pool.SideChain.Effort.Current %}%
             </td>
@@ -95,7 +95,7 @@ type IndexPage struct {
 </div>
 
 <div style="text-align: center">
-    <form action="/miner" method="get">
+    <form action="{%= ctx.Path("/miner") %}" method="get">
         <h2>Lookup miner statistics</h2>
         <div>
             <label for="miner-address">Payout Salvium address or Miner Alias</label><br/>
@@ -106,10 +106,10 @@ type IndexPage struct {
         </div>
     </form>
     <p>
-        <a href="/calculate-share-time">[Average share time calculator]</a> :: <a href="/connectivity-check">[Connectivity Check]</a>
+        <a href="{%= ctx.Path("/calculate-share-time") %}">[Average share time calculator]</a> :: <a href="{%= ctx.Path("/connectivity-check") %}">[Connectivity Check]</a>
     </p>
     <p>
-        <a href="/miners">[Current Window Miners]</a> :: <a href="/miners?weekly">[Weekly Miners]</a>
+        <a href="{%= ctx.Path("/miners") %}">[Current Window Miners]</a> :: <a href="{%= ctx.Path("/miners?weekly") %}">[Weekly Miners]</a>
     </p>
 </div>
 
@@ -119,7 +119,7 @@ type IndexPage struct {
     <h2>Recent Salvium blocks found by P2Pool miners</h2>
 
     {%= TemplateFoundBlocks(p.Context(), p.FoundBlocks, false) %}
-    <div class="center"><a href="/blocks">[show more found blocks]</a></div>
+    <div class="center"><a href="{%= ctx.Path("/blocks") %}">[show more found blocks]</a></div>
 
     <h3>Blocks found during last day</h3>
     <code class="mono">{%s p.Positions.BlocksFound.String() %}</code>

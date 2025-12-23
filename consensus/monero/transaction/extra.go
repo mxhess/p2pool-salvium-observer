@@ -163,7 +163,8 @@ func (t *ExtraTag) SideChainHashingBlob(preAllocatedBuf []byte, zeroTemplateId b
 		// serialize zero hash or remaining data only
 		buf = append(buf, make([]byte, len(t.Data)-dataLen)...)
 	} else if t.Tag == TxExtraTagNonce {
-		//Replace only the first four bytes
+		// ALWAYS zero the coinbase extra_nonce for sidechain hashing
+		// PoolBlock template is initialized with m_extraNonce=0 in C++ (pool_block.cpp:46)
 		buf = append(buf,
 			[]byte{0, 0, 0, 0}[:min(TxExtraTemplateNonceSize, len(t.Data))]...,
 		)

@@ -16,6 +16,7 @@ type MinerOptionsPage struct {
 {% endfunc %}
 
 {% func (p *MinerOptionsPage) Content() %}
+{% code ctx := p.Context() %}
 
 <div style="text-align: center">
     <h2 class="mono">Miner Options</h2>
@@ -171,7 +172,7 @@ type MinerOptionsPage struct {
                     <td>{% if cmdutils.CanSendToHook(w, "found_blocks") %}Yes{% else %}No{% endif %}</td>
                     <td>{% if cmdutils.CanSendToHook(w, "orphaned_blocks") %}Yes{% else %}No{% endif %}</td>
                     <td>{% if cmdutils.CanSendToHook(w, "other") %}Yes{% else %}No{% endif %}</td>
-                    <td><a href="/miner-options/{%z= p.Miner.Address.ToBase58() %}/remove_webhook?type={%s string(w.Type) %}&url_hash={%s w.Url %}">[Remove]</a></td>
+                    <td><a href="{%s ctx.Path("/miner-options/") %}{%z= p.Miner.Address.ToBase58() %}/remove_webhook?type={%s string(w.Type) %}&url_hash={%s w.Url %}">[Remove]</a></td>
                 </tr>
                 {% endfor %}
             </table>

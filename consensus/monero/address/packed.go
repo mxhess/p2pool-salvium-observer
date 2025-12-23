@@ -81,7 +81,7 @@ func (p PackedAddress) ToBase58(typeNetwork uint8, err ...error) []byte {
 	copy(nice[1+crypto.PublicKeySize:], p[PackedAddressView][:])
 	sum := crypto.PooledKeccak256(nice[:65])
 
-	buf := make([]byte, 0, 95)
+	buf := make([]byte, 0, 150) // Carrot addresses can be up to 143 chars
 	return base58.EncodeMoneroBase58PreAllocated(buf, []byte{typeNetwork}, p[PackedAddressSpend][:], p[PackedAddressView][:], sum[:4])
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"git.gammaspectra.live/P2Pool/consensus/v4/merge_mining"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/crypto"
 	"git.gammaspectra.live/P2Pool/consensus/v4/monero/randomx"
@@ -234,10 +235,44 @@ func (c *Consensus) CalculateSideTemplateIdPreAllocated(share *PoolBlock, buf []
 
 	buf, _ = share.Main.SideChainHashingBlob(buf, true)
 	_, _ = h.Write(buf)
-	buf, _ = share.Side.AppendBinary(buf[:0], share.ShareVersion())
+	// Zero out SideChainExtraNonce for template ID calculation
+	buf, _ = share.Side.SideChainHashingBlob(buf[:0], share.ShareVersion(), true)
 	_, _ = h.Write(buf)
 	_, _ = h.Write(c.Id[:])
 	crypto.HashFastSum(h, result[:])
+	return result
+}
+
+// CalculateSideChainId Same as CalculateSideTemplateId but does NOT zero out SideChainExtraNonce
+// The mainchain blob (with nonce=0, extra_nonce=0, merkle_root=0) is the same for both calculations
+// Only the SideChainExtraNonce differs: 0 for templateId, actual value for sidechainId
+func (c *Consensus) CalculateSideChainId(share *PoolBlock) (result types.Hash) {
+	h := crypto.GetKeccak256Hasher()
+	defer crypto.PutKeccak256Hasher(h)
+
+	// Mainchain blob ALWAYS has nonce=0, extra_nonce=0, merkle_root=0 (per C++ block_template.cpp:727,765)
+	mainBuf, _ := share.Main.SideChainHashingBlob(make([]byte, 0, share.Main.BufferLength()), true)
+	utils.Logf("P2Pool/SideChainId", "Mainchain blob size: %d bytes", len(mainBuf))
+	_, _ = h.Write(mainBuf)
+	// Keep actual SideChainExtraNonce for sidechain ID calculation
+	sideBuf, _ := share.Side.SideChainHashingBlob(make([]byte, 0, share.Side.BufferLength(share.ShareVersion())), share.ShareVersion(), false)
+	utils.Logf("P2Pool/SideChainId", "Sidechain blob size: %d bytes", len(sideBuf))
+	_, _ = h.Write(sideBuf)
+	_, _ = h.Write(c.Id[:])
+	crypto.HashFastSum(h, result[:])
+
+	// Debug logging
+	mmTag := share.MergeMiningTag()
+	utils.Logf("P2Pool/SideChainId", "Calculating sidechain ID for height %d, ShareVersion %d, MajorVersion %d", share.Side.Height, share.ShareVersion(), share.Main.MajorVersion)
+	utils.Logf("P2Pool/SideChainId", "Transaction count: %d, TxType: %d, AmountBurnt: %d", len(share.Main.Transactions), share.Main.Coinbase.TxType, share.Main.Coinbase.AmountBurnt)
+	utils.Logf("P2Pool/SideChainId", "MerkleProof length: %d, MergeMiningExtra length: %d", len(share.Side.MerkleProof), len(share.Side.MergeMiningExtra))
+	utils.Logf("P2Pool/SideChainId", "Main blob (%d bytes): %x", len(mainBuf), mainBuf)
+	utils.Logf("P2Pool/SideChainId", "Side blob (%d bytes): %x", len(sideBuf), sideBuf)
+	utils.Logf("P2Pool/SideChainId", "Consensus ID: %x", c.Id[:])
+	utils.Logf("P2Pool/SideChainId", "Calculated sidechain ID: %x", result[:])
+	utils.Logf("P2Pool/SideChainId", "Merge mining root hash: %x", mmTag.RootHash[:])
+	utils.Logf("P2Pool/SideChainId", "AuxiliarySlot: %d, NumberAuxChains: %d, Nonce: %d", merge_mining.GetAuxiliarySlot(c.Id, mmTag.Nonce, mmTag.NumberAuxiliaryChains), mmTag.NumberAuxiliaryChains, mmTag.Nonce)
+
 	return result
 }
 

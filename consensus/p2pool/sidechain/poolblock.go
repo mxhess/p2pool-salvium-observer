@@ -307,13 +307,10 @@ func (b *PoolBlock) FastSideTemplateId(consensus *Consensus) types.Hash {
 		if b.Main.Coinbase.AuxiliaryData.TemplateId != types.ZeroHash {
 			return b.Main.Coinbase.AuxiliaryData.TemplateId
 		} else {
-			// not merge mining, hash should be equal
-			mmTag := b.MergeMiningTag()
-			if mmTag.NumberAuxiliaryChains == 1 {
-				return mmTag.RootHash
-			}
-
-			//fallback to full calculation
+			// For pruned blocks without template ID, must do full calculation
+			// Cannot use mmTag.RootHash as shortcut because rootHash != templateId:
+			// - rootHash uses actual extra_nonce
+			// - templateId uses zeroed extra_nonce
 			return b.SideTemplateId(consensus)
 		}
 	} else {
@@ -599,7 +596,8 @@ func (b *PoolBlock) consensusDecode(consensus *Consensus, derivationCache Deriva
 	// verify number and order of tags
 	if extra := b.Main.Coinbase.Extra; len(extra) != 3 {
 		return errors.New("wrong coinbase extra tag count")
-	} else if extra[0].Tag != transaction.TxExtraTagPubKey {
+	} else if extra[0].Tag != transaction.TxExtraTagPubKey && extra[0].Tag != transaction.TxExtraTagAdditionalPubKeys {
+		// Salvium Carrot v1: can use either TxExtraTagPubKey (single output) or TxExtraTagAdditionalPubKeys (multiple outputs)
 		return errors.New("wrong coinbase extra tag at index 0")
 	} else if extra[1].Tag != transaction.TxExtraTagNonce {
 		return errors.New("wrong coinbase extra tag at index 1")
@@ -801,6 +799,11 @@ func (b *PoolBlock) GetPayoutAddress(networkType NetworkType) *address.Address {
 }
 
 func (b *PoolBlock) GetTransactionOutputType() uint8 {
+	// Salvium uses Carrot v1 starting from majorVersion 10
+	if b.Main.MajorVersion >= 10 {
+		return transaction.TxOutToCarrotV1
+	}
+
 	// Both tx types are allowed by Monero consensus during v15 because it needs to process pre-fork mempool transactions,
 	// but P2Pool can switch to using only TXOUT_TO_TAGGED_KEY for miner payouts starting from v15
 	expectedTxType := uint8(transaction.TxOutToKey)

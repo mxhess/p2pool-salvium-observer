@@ -130,8 +130,8 @@ func main() {
 	}
 
 	//monerod related
-	moneroHost := flag.String("host", "127.0.0.1", "IP address of your Monero node")
-	moneroRpcPort := flag.Uint("rpc-port", 18081, "monerod RPC API port number")
+	moneroHost := flag.String("host", "127.0.0.1", "IP address of your Salvium node")
+	moneroRpcPort := flag.Uint("rpc-port", 19081, "salviumd RPC API port number")
 	debugListen := flag.String("debug-listen", "", "Provide a bind address and port to expose a pprof HTTP API on it.")
 	flag.Parse()
 
@@ -213,6 +213,7 @@ func main() {
 		//TODO change to args
 		NetServiceAddress: os.Getenv("NET_SERVICE_ADDRESS"),
 		TorServiceAddress: os.Getenv("TOR_SERVICE_ADDRESS"),
+		BasePath:          os.Getenv("BASE_PATH"),
 		Consensus:         consensus,
 		Pool:              nil,
 	}
@@ -492,6 +493,12 @@ func main() {
 		}
 
 		shares := getSideBlocksFromAPI(fmt.Sprintf("side_blocks_in_window?window=%d&noMainStatus&noUncles", windowSize), cacheTime)
+
+		// Handle empty shares (pool just started or PPLNS window broken)
+		if len(shares) == 0 {
+			renderPage(request, writer, views.NewErrorPage(http.StatusServiceUnavailable, "No Shares in PPLNS Window", "The P2Pool sidechain has no shares yet. Please wait for mining activity to start."))
+			return
+		}
 
 		miners := make(map[uint64]*views.MinersPageMinerEntry)
 

@@ -469,7 +469,7 @@ func (c *MainChain) HandleMinerData(minerData *p2pooltypes.MinerData) {
 		if c.p2pool.Started() {
 			for h := minerData.Height; h > 0 && (h+BlockHeadersRequired) > minerData.Height; h-- {
 				if d, ok := c.mainchainByHeight[h]; !ok || d.Difficulty.Equals(types.ZeroDifficulty) {
-					utils.Logf("MainChain", "Main chain data for height = %d is missing, requesting from monerod again", h)
+					utils.Logf("MainChain", "Main chain data for height = %d is missing, requesting from salviumd again", h)
 					missingHeights = append(missingHeights, h)
 				}
 			}

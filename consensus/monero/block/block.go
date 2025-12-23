@@ -18,6 +18,136 @@ import (
 
 const MaxTransactionCount = uint64(math.MaxUint64) / types.HashSize
 
+// readProtocolTransactionHash reads the Salvium Carrot v1 protocol transaction and returns its hash
+// Protocol TX structure: version(4) + unlock_time(60) + vin(1 txin_gen + height) +
+// vout(0) + extra(2 bytes: 0x02 0x00) + type(2=PROTOCOL) + rct(0)
+func readProtocolTransactionHash(reader utils.ReaderAndByteReader) (types.Hash, error) {
+	var hash types.Hash
+	txBuf := bytes.NewBuffer(make([]byte, 0, 64))
+
+	// Read version
+	version, err := utils.ReadCanonicalUvarint(reader)
+	if err != nil {
+		return hash, err
+	}
+	txBuf.Write(binary.AppendUvarint(nil, version))
+
+	if version != 4 {
+		return hash, fmt.Errorf("unexpected protocol TX version: %d", version)
+	}
+
+	// Read unlock_time
+	unlockTime, err := utils.ReadCanonicalUvarint(reader)
+	if err != nil {
+		return hash, err
+	}
+	txBuf.Write(binary.AppendUvarint(nil, unlockTime))
+
+	if unlockTime != 60 {
+		return hash, fmt.Errorf("unexpected protocol TX unlock time: %d", unlockTime)
+	}
+
+	// Read vin_size
+	vinSize, err := utils.ReadCanonicalUvarint(reader)
+	if err != nil {
+		return hash, err
+	}
+	txBuf.Write(binary.AppendUvarint(nil, vinSize))
+
+	if vinSize != 1 {
+		return hash, fmt.Errorf("unexpected protocol TX vin size: %d", vinSize)
+	}
+
+	// Read txin_type
+	txinType, err := reader.ReadByte()
+	if err != nil {
+		return hash, err
+	}
+	txBuf.WriteByte(txinType)
+
+	if txinType != transaction.TxInGen {
+		return hash, fmt.Errorf("unexpected protocol TX input type: %d", txinType)
+	}
+
+	// Read height
+	height, err := utils.ReadCanonicalUvarint(reader)
+	if err != nil {
+		return hash, err
+	}
+	txBuf.Write(binary.AppendUvarint(nil, height))
+
+	// Read vout_size
+	voutSize, err := utils.ReadCanonicalUvarint(reader)
+	if err != nil {
+		return hash, err
+	}
+	txBuf.Write(binary.AppendUvarint(nil, voutSize))
+
+	if voutSize != 0 {
+		return hash, fmt.Errorf("unexpected protocol TX vout size: %d", voutSize)
+	}
+
+	// Read extra_size
+	extraSize, err := utils.ReadCanonicalUvarint(reader)
+	if err != nil {
+		return hash, err
+	}
+	txBuf.Write(binary.AppendUvarint(nil, extraSize))
+
+	// Read extra bytes
+	extraBuf := make([]byte, extraSize)
+	if _, err = io.ReadFull(reader, extraBuf); err != nil {
+		return hash, err
+	}
+	txBuf.Write(extraBuf)
+
+	// Read type
+	txType, err := utils.ReadCanonicalUvarint(reader)
+	if err != nil {
+		return hash, err
+	}
+	txBuf.Write(binary.AppendUvarint(nil, txType))
+
+	// Read rct_type
+	rctType, err := reader.ReadByte()
+	if err != nil {
+		return hash, err
+	}
+	txBuf.WriteByte(rctType)
+
+	if rctType != 0 {
+		return hash, fmt.Errorf("unexpected protocol TX rct type: %d", rctType)
+	}
+
+	// Calculate hash of the protocol transaction
+	// The hash is calculated the same way as regular transactions
+	txBytes := txBuf.Bytes()
+
+	hasher := crypto.GetKeccak256Hasher()
+	defer crypto.PutKeccak256Hasher(hasher)
+
+	// Protocol tx hash: coinbase id, base RCT hash, prunable RCT hash
+	var txHashingBlob [3 * types.HashSize]byte
+
+	// Hash transaction bytes (without rct_type)
+	_, _ = hasher.Write(txBytes[:len(txBytes)-1])
+	crypto.HashFastSum(hasher, txHashingBlob[:])
+
+	// Base RCT (single 0 byte)
+	baseRCTZeroHash := crypto.PooledKeccak256([]byte{0})
+	copy(txHashingBlob[1*types.HashSize:], baseRCTZeroHash[:])
+
+	// Prunable RCT is empty (already zeroed)
+
+	hasher.Reset()
+	_, _ = hasher.Write(txHashingBlob[:])
+	crypto.HashFastSum(hasher, hash[:])
+
+	utils.Logf("P2Pool/ProtocolTx", "Calculated protocol TX hash: %x (height: %d)", hash[:], height)
+
+	return hash, nil
+}
+
 type Block struct {
 	MajorVersion uint8 `json:"major_version"`
 	MinorVersion uint8 `json:"minor_version"`
@@ -31,6 +161,9 @@ type Block struct {
 
 	Coinbase   transaction.CoinbaseTransaction  `json:"coinbase"`
 	ProtocolTx *transaction.CoinbaseTransaction `json:"protocol_tx,omitempty"` // Salvium: Protocol transaction
+
+	// ProtocolTxHash is the hash of the protocol transaction (Carrot v1 only)
+	ProtocolTxHash types.Hash `json:"protocol_tx_hash,omitempty"`
 
 	Transactions []types.Hash `json:"transactions,omitempty"`
 	// TransactionParentIndices amount of reward existing Outputs. Used by p2pool serialized compact broadcasted blocks in protocol >= 1.1, filled only in compact blocks or by pre-processing.
@@ -210,6 +343,14 @@ func (b *Block) FromReaderFlags(reader utils.ReaderAndByteReader, compact, canBe
 		}
 	}
 
+	// Salvium Carrot v1+: Read Protocol TX hash if present (major_version >= 10)
+	if b.MajorVersion >= 10 {
+		if b.ProtocolTxHash, err = readProtocolTransactionHash(reader); err != nil {
+			return err
+		}
+		utils.Logf("P2Pool/Deserialize", "Read protocol TX hash for MajorVersion %d", b.MajorVersion)
+	}
+
 	//TODO: verify hardfork major versions
 
 	if txCount, err = utils.ReadCanonicalUvarint(reader); err != nil {
@@ -252,6 +393,11 @@ func (b *Block) FromReaderFlags(reader utils.ReaderAndByteReader, compact, canBe
 				b.Transactions = append(b.Transactions, transactionHash)
 			}
 		}
+	}
+
+	// Debug: log transaction count and first hash if present
+	if b.MajorVersion >= 10 && len(b.Transactions) > 0 {
+		utils.Logf("P2Pool/Deserialize", "Deserialized %d transaction hashes, first: %x", len(b.Transactions), b.Transactions[0][:])
 	}
 
 	return nil
@@ -302,6 +448,31 @@ func (b *Block) SideChainHashingBlob(preAllocatedBuf []byte, zeroTemplateId bool
 		return nil, err
 	}
 
+	// Serialize protocol transaction for Carrot v1 (matches pool_block.cpp:295-321)
+	if b.MajorVersion >= 10 {
+		// version = 4 (TRANSACTION_VERSION_CARROT)
+		buf = binary.AppendUvarint(buf, 4)
+		// unlock_time = 60
+		buf = binary.AppendUvarint(buf, 60)
+		// vin.size() = 1
+		buf = binary.AppendUvarint(buf, 1)
+		// TXIN_GEN
+		buf = append(buf, transaction.TxInGen)
+		// height
+		buf = binary.AppendUvarint(buf, b.Coinbase.GenHeight)
+		// vout.size() = 0
+		buf = binary.AppendUvarint(buf, 0)
+		// extra.size() = 2
+		buf = binary.AppendUvarint(buf, 2)
+		// extra data: 0x02 0x00
+		buf = append(buf, 0x02, 0x00)
+		// type = PROTOCOL (2)
+		buf = binary.AppendUvarint(buf, 2)
+		// RCT type = 0
+		buf = append(buf, 0)
+	}
+
+	// Write transaction count and hashes (excluding coinbase)
 	buf = binary.AppendUvarint(buf, uint64(len(b.Transactions)))
 	for _, txId := range b.Transactions {
 		buf = append(buf, txId[:]...)

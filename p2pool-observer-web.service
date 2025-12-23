@@ -1,0 +1,53 @@
+# /etc/systemd/system/p2pool-observer-web.service
+
+[Unit]
+Description=P2Pool Salvium Observer Web Interface
+Documentation=https://github.com/mxhess/p2pool-salvium-observer
+After=network-online.target p2pool-observer-api.service
+Wants=network-online.target
+Requires=p2pool-observer-api.service
+
+[Service]
+Type=simple
+User=p2pool
+Group=p2pool
+WorkingDirectory=/srv/p2pool-observer
+
+# Environment variables
+Environment="API_URL=http://localhost:8080/api/"
+Environment="SITE_TITLE=P2Pool Salvium Observer"
+Environment="BASE_PATH=/p2pool-observer"
+
+# Web server - connects to local API
+ExecStart=/srv/p2pool-observer/web \
+  --host=core2.whiskymine.io \
+  --rpc-port=19081
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/p2pool-observer
+
+# Resource limits
+LimitNOFILE=65535
+MemoryMax=1G
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=p2pool-observer-web
+
+[Install]
+WantedBy=multi-user.target
+

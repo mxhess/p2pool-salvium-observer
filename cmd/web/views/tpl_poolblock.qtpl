@@ -26,9 +26,9 @@
             {% if sideBlock.SideHeight == 0 %}
             <td colspan="2">Genesis Block</td>
             {% elseif sideBlock.IsUncle() %}
-            <td colspan="2"><a href="/share/{%= hex(ctx, sideBlock.UncleOf) %}">&lt;&lt; Parent share</a></td>
+            <td colspan="2"><a href="{%s ctx.Path("/share/") %}{%= hex(ctx, sideBlock.UncleOf) %}">&lt;&lt; Parent share</a></td>
             {% else %}
-            <td colspan="2"><a href="/share/{%= hex(ctx, sideBlock.ParentTemplateId) %}">&lt;&lt; Previous share</a></td>
+            <td colspan="2"><a href="{%s ctx.Path("/share/") %}{%= hex(ctx, sideBlock.ParentTemplateId) %}">&lt;&lt; Previous share</a></td>
             {% endif %}
             {% if sideBlock.IsOrphan() %}
             <td colspan="2">Orphans do not have next blocks</td>
@@ -56,8 +56,8 @@
 
             {% if sideBlock != nil %}
                 {% if sideBlock.MinedMainAtHeight %}
-                <td><a href="/b/{%s benc(sideBlock.MainHeight) %}">{%dul sideBlock.MainHeight %}</a></td>
-                <td class="mono smaller"><a href="/b/{%s benc(sideBlock.MainHeight) %}">{%= hex(ctx, sideBlock.MainId) %}</a></td>
+                <td><a href="{%s ctx.Path("/b/") %}{%s benc(sideBlock.MainHeight) %}">{%dul sideBlock.MainHeight %}</a></td>
+                <td class="mono smaller"><a href="{%s ctx.Path("/b/") %}{%s benc(sideBlock.MainHeight) %}">{%= hex(ctx, sideBlock.MainId) %}</a></td>
                 {% else %}
                 <td>{%dul sideBlock.MainHeight %}</td>
                 <td class="mono smaller">{%= hex(ctx, sideBlock.MainId) %}</td>
@@ -100,7 +100,7 @@
             <td>{%= side_block_valuation(poolBlock, ctx.Consensus) %}</td>
             {% endif %}
             {% if sideBlock != nil && sideBlock.MinedMainAtHeight %}
-            <td class="mono smaller"><a href="/t/{%= henc(poolBlock.CoinbaseId()) %}">{%= hex(ctx, poolBlock.CoinbaseId()) %}</a></td>
+            <td class="mono smaller"><a href="{%s ctx.Path("/t/") %}{%= henc(poolBlock.CoinbaseId()) %}">{%= hex(ctx, poolBlock.CoinbaseId()) %}</a></td>
             {% else %}
             <td class="mono smaller">{%= hex(ctx, poolBlock.CoinbaseId()) %}</td>
             {% endif %}
@@ -129,7 +129,7 @@
         </tr>
         <tr>
             <td>{%= software_info(poolBlock.Side.ExtraBuffer.SoftwareId, poolBlock.Side.ExtraBuffer.SoftwareVersion) %}</td>
-            <td>{%s= poolBlock.ShareVersion().String() %} <span class="small">({% if poolBlock.ShareVersionSignaling() != sidechain.ShareVersion_None %}signaling {%s= poolBlock.ShareVersionSignaling().String() %} support{% else %}no known signaling{% endif %})</span></td>
+            <td>{%s poolBlock.ShareVersion().String() %} <span class="small">({% if poolBlock.ShareVersionSignaling() != sidechain.ShareVersion_None %}signaling {%s poolBlock.ShareVersionSignaling().String() %} support{% else %}no known signaling{% endif %})</span></td>
             <td class="small">{% if poolBlock.ShareVersion() > sidechain.ShareVersion_V1 %}<span class="mono" title="Random Number">{%= hex(ctx, poolBlock.Side.ExtraBuffer.RandomNumber) %}</span> / <span class="mono" title="SideChain Extra Nonce">{%= hex(ctx, poolBlock.Side.ExtraBuffer.SideChainExtraNonce) %}{% endif %}</span></td>
             <td>{% if poolBlock.GetPrivateKeySeed() != types.ZeroHash %}<span class="mono smaller">{%= hex(ctx, poolBlock.GetPrivateKeySeed()) %}</span>{% else %}Not Deterministic{% endif %}</td>
         </tr>
@@ -144,7 +144,7 @@
     {% endif %}
     <ul class="mono">
         {% for _, u := range poolBlock.Side.Uncles %}
-        <li><a href="/share/{%= hex(ctx, u) %}">{%= hex(ctx, u) %}</a></li>
+        <li><a href="{%s ctx.Path("/share/") %}{%= hex(ctx, u) %}">{%= hex(ctx, u) %}</a></li>
         {% endfor %}
     </ul>
     {% endif %}
@@ -210,7 +210,7 @@
             <td class="small" title="{%f.3 (float64(t.Reward) / float64(poolBlock.Main.Coinbase.AuxiliaryData.TotalReward)) * 100 %}%">{%s monero_to_xmr(t.Reward) %} SAL</td>
             {% if sideBlock != nil && sideBlock.MinedMainAtHeight %}
             <td class="small">{%dul globalOutputIndex %}</td>
-            <td class="small"><a href="/proof/{%= hex(ctx, sideBlock.MainId) %}/{%dul t.Index %}" title="Prove you have a matching output for this address on this transaction">[Payout Proof #{%dul t.Index %}]</a></td>
+            <td class="small"><a href="{%s ctx.Path("/proof/") %}{%= hex(ctx, sideBlock.MainId) %}/{%dul t.Index %}" title="Prove you have a matching output for this address on this transaction">[Payout Proof #{%dul t.Index %}]</a></td>
             {% if sweepsCount > 0 %}
             {% code outputSweeps := sweeps[t.Index] %}
             {% if len(outputSweeps) > 0 %}
@@ -230,7 +230,7 @@
     <h2>Included Transactions</h2>
     <ul class="mono">
         {% for _, t := range poolBlock.Main.Transactions %}
-        <li><a href="/t/{%= henc(t) %}">{%= hex(ctx, t) %}</a></li>
+        <li><a href="{%s ctx.Path("/t/") %}{%= henc(t) %}">{%= hex(ctx, t) %}</a></li>
         {% endfor %}
     </ul>
     {% endif %}

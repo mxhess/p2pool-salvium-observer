@@ -24,15 +24,15 @@
         {% if b.Orphan() %}
         <th title="{%= hex(ctx, b.MainBlock.Id) %} is an orphan at Salvium height {%dul b.MainBlock.Height %}">{%dul b.MainBlock.Height %}*</th>
         {% else %}
-        <th title="{%= hex(ctx, b.MainBlock.Id) %}"><a href="/b/{%s benc(b.MainBlock.Height) %}">{%dul b.MainBlock.Height %}</a></th>
+        <th title="{%= hex(ctx, b.MainBlock.Id) %}"><a href="{%s ctx.Path("/b/") %}{%s benc(b.MainBlock.Height) %}">{%dul b.MainBlock.Height %}</a></th>
         {% endif %}
         {% if b.UncleOf != types.ZeroHash %}
         <th title="{%= hex(ctx, b.MainBlock.SideTemplateId) %} is an uncle of height {%dul b.EffectiveHeight %}, {%= hex(ctx, b.UncleOf) %}">
-            <a href="/share/{%= hex(ctx, b.MainBlock.SideTemplateId) %}">{%dul b.SideHeight %}*</a>
+            <a href="{%s ctx.Path("/share/") %}{%= hex(ctx, b.MainBlock.SideTemplateId) %}">{%dul b.SideHeight %}*</a>
         </th>
         {% else %}
         <th title="{%= hex(ctx, b.MainBlock.SideTemplateId) %}">
-            <a href="/share/{%= hex(ctx, b.MainBlock.SideTemplateId) %}">{%dul b.SideHeight %}</a>
+            <a href="{%s ctx.Path("/share/") %}{%= hex(ctx, b.MainBlock.SideTemplateId) %}">{%dul b.SideHeight %}</a>
         </th>
         {% endif %}
         <td title="{%s utc_date(b.MainBlock.Timestamp) %}">{%s date_diff_short(b.MainBlock.Timestamp) %}</td>
@@ -61,7 +61,7 @@
         <td style="color: red;">ORPHANED</t>
         <td class="mono smaller">-</td>
         {% else %}
-        <td title="{%= hex(ctx, b.MainBlock.CoinbaseId) %}" class="mono small"><a href="/t/{%= henc(b.MainBlock.CoinbaseId) %}">{%= shorten(ctx, b.MainBlock.CoinbaseId, 10) %}</a></td>
+        <td title="{%= hex(ctx, b.MainBlock.CoinbaseId) %}" class="mono small"><a href="{%s ctx.Path("/t/") %}{%= henc(b.MainBlock.CoinbaseId) %}">{%= shorten(ctx, b.MainBlock.CoinbaseId, 10) %}</a></td>
         <td class="mono smaller">{%= hex(ctx, b.MainBlock.CoinbasePrivateKey) %}</td>
         {% endif %}
     </tr>

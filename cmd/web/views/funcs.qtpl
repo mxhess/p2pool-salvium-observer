@@ -63,7 +63,7 @@
 	    %}
 	    {%z= ctx.HexBuffer[:] %}
     {% case []byte %}
-		{%s= hex2.EncodeToString(s) %}
+		{%s hex2.EncodeToString(s) %}
     {% case uint32 %}
 	    {% code
 		var buf [4]byte
@@ -139,9 +139,9 @@
         %}
         {%z= dst[:] %}
     {% case string %}
-        {%s= cmdutils.EncodeHexBinaryNumber(s) %}
+        {%s cmdutils.EncodeHexBinaryNumber(s) %}
     {% case fmt.Stringer %}
-		{%s= cmdutils.EncodeHexBinaryNumber(s.String()) %}
+		{%s cmdutils.EncodeHexBinaryNumber(s.String()) %}
     {% default %}
 		panic("type not allowed")
     {% endswitch %}
@@ -151,7 +151,7 @@
 	{% if softwareId == 0 && softwareVersion == 0 %}
 		Not present
 	{% else %}
-	    {%s= softwareId.String() %}{%s= ` ` %}{%s= softwareVersion.SoftwareAwareString(softwareId) %}
+	    {%s softwareId.String() %}{%s ` ` %}{%s softwareVersion.SoftwareAwareString(softwareId) %}
 	{% endif %}
 {% endfunc %}
 
@@ -161,15 +161,15 @@
 		{% if block.IsOrphan() %}
 			0%
 		{% elseif block.IsUncle() %}
-		    {%dul 100-consensus.UnclePenalty %}%{%s= ` ` %}(uncle)
+		    {%dul 100-consensus.UnclePenalty %}%{%s ` ` %}(uncle)
 		{% elseif len(block.Uncles) > 0 %}
-		    100%{%s= ` ` %}+{%s= ` ` %}{%dul consensus.UnclePenalty %}%{%s= ` ` %}of{%s= ` ` %}{%d len(block.Uncles) %}{%s= ` ` %}uncle(s)
+		    100%{%s ` ` %}+{%s ` ` %}{%dul consensus.UnclePenalty %}%{%s ` ` %}of{%s ` ` %}{%d len(block.Uncles) %}{%s ` ` %}uncle(s)
 		{% else %}
 			100%
 		{% endif %}
     {% case *sidechain.PoolBlock %}
 		{% if len(block.Side.Uncles) > 0 %}
-		    100%{%s= ` ` %}+{%s= ` ` %}{%dul consensus.UnclePenalty %}%{%s= ` ` %}of{%s= ` ` %}{%d len(block.Side.Uncles) %}{%s= ` ` %}uncle(s)
+		    100%{%s ` ` %}+{%s ` ` %}{%dul consensus.UnclePenalty %}%{%s ` ` %}of{%s ` ` %}{%d len(block.Side.Uncles) %}{%s ` ` %}uncle(s)
 		{% else %}
 			100%
 		{% endif %}

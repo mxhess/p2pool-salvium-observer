@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator - P2Pool Salvium</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .calc-input-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .calc-input-group label {
+            color: var(--whisky-amber);
+            font-weight: 500;
+        }
+        .calc-input-group input {
+            width: 150px;
+            padding: 0.5rem;
+            font-size: 16px;
+        }
+        .calc-input-group select {
+            padding: 0.5rem;
+            font-size: 16px;
+        }
+        .calc-result-card {
+            background: rgba(210, 105, 30, 0.1);
+            border-radius: 5px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-left: 4px solid var(--whisky-gold);
+        }
+        .calc-result-card h3 {
+            color: var(--whisky-amber);
+            margin-bottom: 0.5rem;
+            font-size: 14px;
+        }
+        .calc-result-card .value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--whisky-gold);
+        }
+        .calc-result-card .detail {
+            color: #8B7653;
+            font-size: 12px;
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body class="dark">
+    <div class="content center">
+        <nav style="margin-bottom: 2rem; text-align: center;">
+            <a href="." class="nav-item">Home</a> |
+            <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="miners.html" class="nav-item">Miners</a> |
+            <a href="calculator.html" class="nav-item">Calculator</a>
+        </nav>
+
+        <h1 style="text-align: center; margin-bottom: 0.5rem;">Mining Calculator</h1>
+        <p style="text-align: center; margin-bottom: 2rem; color: #8B7653;">Estimate your mining rewards and share frequency</p>
+
+        <!-- Calculator Inputs -->
+        <div class="calc-input-group">
+            <label for="hashrate">Your Hashrate:</label>
+            <input type="number" id="hashrate" value="1" min="0" step="0.1" onchange="calculate()">
+            <select id="magnitude" onchange="calculate()">
+                <option value="1">H/s</option>
+                <option value="1000" selected>KH/s</option>
+                <option value="1000000">MH/s</option>
+                <option value="1000000000">GH/s</option>
+            </select>
+        </div>
+
+        <!-- Current Pool Stats -->
+        <div class="stats-grid" style="margin-bottom: 2rem;">
+            <div class="stat-card">
+                <h3>Pool Hashrate</h3>
+                <div class="value" id="pool-hashrate">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Share Difficulty</h3>
+                <div class="value" id="share-diff">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Network Difficulty</h3>
+                <div class="value" id="network-diff">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Block Reward</h3>
+                <div class="value" id="block-reward">--</div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div style="margin-top: 2rem;">
+            <h2 class="txtmed C1" style="margin-bottom: 1rem;">Estimated Results</h2>
+            <div class="stats-grid">
+                <div class="calc-result-card">
+                    <h3>Shares Per Day</h3>
+                    <div class="value" id="shares-per-day">--</div>
+                    <div class="detail">At 100% effort</div>
+                </div>
+                <div class="calc-result-card">
+                    <h3>Reward Per Day</h3>
+                    <div class="value" id="reward-per-day">--</div>
+                    <div class="detail">Pool share of rewards</div>
+                </div>
+                <div class="calc-result-card">
+                    <h3>Time Per Share</h3>
+                    <div class="value" id="time-per-share">--</div>
+                    <div class="detail">At 100% effort</div>
+                </div>
+                <div class="calc-result-card">
+                    <h3>Solo Block Time</h3>
+                    <div class="value" id="solo-block-time">--</div>
+                    <div class="detail">If mining solo</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Effort Probability Table -->
+        <div style="margin-top: 2rem;">
+            <h2 class="txtmed C1" style="margin-bottom: 1rem;">Effort Probability</h2>
+            <p style="margin-bottom: 1rem; color: #8B7653; font-size: 12px;">
+                Time to find a share at different effort levels
+            </p>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Effort</th>
+                        <th>Probability</th>
+                        <th>Time (Share)</th>
+                        <th>Time (Solo Block)</th>
+                    </tr>
+                </thead>
+                <tbody id="effort-table-body">
+                    <!-- Filled by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let poolInfo = null;
+
+        // Format time duration
+        function formatDuration(seconds) {
+            if (seconds < 60) return Math.round(seconds) + ' sec';
+            if (seconds < 3600) return (seconds / 60).toFixed(1) + ' min';
+            if (seconds < 86400) return (seconds / 3600).toFixed(1) + ' hours';
+            if (seconds < 604800) return (seconds / 86400).toFixed(1) + ' days';
+            if (seconds < 2592000) return (seconds / 604800).toFixed(1) + ' weeks';
+            if (seconds < 31536000) return (seconds / 2592000).toFixed(1) + ' months';
+            return (seconds / 31536000).toFixed(1) + ' years';
+        }
+
+        // Probability of finding share at given effort
+        function probabilityAtEffort(effort) {
+            return 1 - Math.exp(-effort / 100);
+        }
+
+        // Calculate and display results
+        function calculate() {
+            if (!poolInfo) return;
+
+            const hashrate = parseFloat(document.getElementById('hashrate').value) || 0;
+            const magnitude = parseFloat(document.getElementById('magnitude').value) || 1;
+            const totalHashrate = hashrate * magnitude;
+
+            if (totalHashrate <= 0) {
+                document.getElementById('shares-per-day').textContent = '--';
+                document.getElementById('reward-per-day').textContent = '--';
+                document.getElementById('time-per-share').textContent = '--';
+                document.getElementById('solo-block-time').textContent = '--';
+                return;
+            }
+
+            // Get pool data
+            const shareDiff = poolInfo.sidechain_difficulty || poolInfo.share_difficulty || 100000;
+            const networkDiff = poolInfo.mainchain_difficulty || 1000000000;
+            const blockReward = poolInfo.block_reward || 100000000; // 1 SAL default
+            const poolHashrate = poolInfo.pool_hashrate || 1000000;
+
+            // Time to find one share (seconds)
+            const timePerShare = shareDiff / totalHashrate;
+
+            // Shares per day
+            const sharesPerDay = 86400 / timePerShare;
+
+            // Share of pool
+            const poolShare = totalHashrate / poolHashrate;
+
+            // Estimated reward per day (proportional to pool share)
+            // Blocks found per day by pool = poolHashrate * 86400 / networkDiff
+            const poolBlocksPerDay = (poolHashrate * 86400) / networkDiff;
+            const rewardPerDay = poolBlocksPerDay * blockReward * poolShare;
+
+            // Solo block time
+            const soloBlockTime = networkDiff / totalHashrate;
+
+            // Update display
+            document.getElementById('shares-per-day').textContent = sharesPerDay.toFixed(2);
+            document.getElementById('reward-per-day').textContent = Utils.formatSALShort(rewardPerDay);
+            document.getElementById('time-per-share').textContent = formatDuration(timePerShare);
+            document.getElementById('solo-block-time').textContent = formatDuration(soloBlockTime);
+
+            // Build effort table
+            const efforts = [25, 50, 75, 100, 150, 200, 300, 500, 1000];
+            let tableHtml = '';
+
+            for (const effort of efforts) {
+                const prob = probabilityAtEffort(effort) * 100;
+                const shareTime = timePerShare * (effort / 100);
+                const soloTime = soloBlockTime * (effort / 100);
+
+                tableHtml += `
+                    <tr>
+                        <td>${effort}%</td>
+                        <td>${prob.toFixed(1)}%</td>
+                        <td>${formatDuration(shareTime)}</td>
+                        <td>${formatDuration(soloTime)}</td>
+                    </tr>
+                `;
+            }
+
+            document.getElementById('effort-table-body').innerHTML = tableHtml;
+        }
+
+        // Update pool stats
+        async function updateStats() {
+            poolInfo = await API.getPoolInfo();
+            if (!poolInfo) return;
+
+            if (poolInfo.pool_hashrate) {
+                document.getElementById('pool-hashrate').textContent = Utils.formatHashrate(poolInfo.pool_hashrate);
+            }
+
+            const shareDiff = poolInfo.sidechain_difficulty || poolInfo.share_difficulty;
+            if (shareDiff) {
+                document.getElementById('share-diff').textContent = Utils.formatDifficulty(shareDiff);
+            }
+            if (poolInfo.mainchain_difficulty) {
+                document.getElementById('network-diff').textContent = Utils.formatDifficulty(poolInfo.mainchain_difficulty);
+            }
+            if (poolInfo.block_reward) {
+                document.getElementById('block-reward').textContent = Utils.formatSALShort(poolInfo.block_reward);
+            }
+
+            calculate();
+        }
+
+        // Initial load
+        async function init() {
+            // Check URL params for hashrate
+            const params = Utils.getUrlParams();
+            if (params.hashrate) {
+                document.getElementById('hashrate').value = params.hashrate;
+            }
+            if (params.magnitude) {
+                document.getElementById('magnitude').value = params.magnitude;
+            }
+
+            await updateStats();
+
+            // Auto refresh every 60 seconds
+            startAutoRefresh(updateStats, 60000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miners - P2Pool Salvium</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+    <div class="content center">
+        <nav style="margin-bottom: 2rem; text-align: center;">
+            <a href="." class="nav-item">Home</a> |
+            <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="miners.html" class="nav-item">Miners</a> |
+            <a href="calculator.html" class="nav-item">Calculator</a>
+        </nav>
+
+        <h1 style="text-align: center; margin-bottom: 2rem;">PPLNS Miners</h1>
+
+        <div class="stats-grid" style="margin-bottom: 2rem;">
+            <div class="stat-card">
+                <h3>Active Miners</h3>
+                <div class="value" id="active-miners">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Window Size</h3>
+                <div class="value" id="window-size">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Weight</h3>
+                <div class="value" id="total-weight">--</div>
+            </div>
+        </div>
+
+        <div id="miners-container">
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        async function load() {
+            const pplns = await API.getPPLNS();
+            const container = document.getElementById('miners-container');
+
+            if (!pplns || !pplns.miners || pplns.miners.length === 0) {
+                container.innerHTML = '<p>No miners in PPLNS window</p>';
+                return;
+            }
+
+            document.getElementById('active-miners').textContent = pplns.miners.length;
+            // Window size from blocks_included or calculate from heights
+            const windowSize = pplns.window_size || pplns.blocks_included ||
+                (pplns.tip_height && pplns.bottom_height ? pplns.tip_height - pplns.bottom_height + 1 : 2160);
+            document.getElementById('window-size').textContent = windowSize;
+            if (pplns.total_weight) document.getElementById('total-weight').textContent = Utils.formatDifficulty(pplns.total_weight);
+
+            const miners = [...pplns.miners].sort((a, b) => {
+                // Handle weight as string (big int) or number
+                const wa = typeof a.weight === 'string' ? parseFloat(a.weight) : (a.weight || 0);
+                const wb = typeof b.weight === 'string' ? parseFloat(b.weight) : (b.weight || 0);
+                return wb - wa;
+            });
+            // Parse total_weight which may be a string
+            const totalWeight = typeof pplns.total_weight === 'string' ?
+                parseFloat(pplns.total_weight) : (pplns.total_weight || 0);
+
+            let html = '<table class="data-table"><thead><tr><th>#</th><th>Miner</th><th>Weight</th><th>Share %</th></tr></thead><tbody>';
+            miners.forEach((miner, i) => {
+                const weight = typeof miner.weight === 'string' ? parseFloat(miner.weight) : (miner.weight || 0);
+                const percent = totalWeight > 0 ? weight / totalWeight * 100 : 0;
+                html += `<tr>
+                    <td>${i + 1}</td>
+                    <td class="miner-address">${Utils.truncateAddress(miner.address)}</td>
+                    <td>${Utils.formatDifficulty(weight)}</td>
+                    <td>${percent.toFixed(4)}%</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        load();
+        startAutoRefresh(load, 120000);
+    </script>
+</body>
+</html>
