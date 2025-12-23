@@ -2,9 +2,10 @@
 
 [Unit]
 Description=P2Pool Salvium Observer API
-Documentation=https://github.com/mxhess/p2pool-salvium-observer
-After=network-online.target
+Documentation=https://github.com/salvium/p2pool-salvium-observer
+After=network-online.target valkey.service p2pool-observer-daemon.service
 Wants=network-online.target
+Requires=valkey.service
 
 [Service]
 Type=simple
@@ -12,31 +13,30 @@ User=p2pool
 Group=p2pool
 WorkingDirectory=/srv/p2pool-observer
 
-# API service - connects to Redis on core2 and Salvium RPC
+# Clean API - reads from Redis and serves JSON endpoints
 ExecStart=/srv/p2pool-observer/api \
-  --host=core2.whiskymine.io \
-  --rpc-port=19081 \
-  --redis=core2.whiskymine.io:6379
+  --redis=localhost:6379 \
+  --listen=:9090
 
 # Graceful shutdown
-TimeoutStopSec=30
+TimeoutStopSec=15
 KillMode=mixed
 KillSignal=SIGTERM
 
 # Restart policy
 Restart=on-failure
-RestartSec=10s
+RestartSec=5s
 
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/srv/p2pool-observer
+ReadOnlyPaths=/srv/p2pool-observer
 
-# Resource limits
+# Resource limits (API is very lightweight - just reads from Redis)
 LimitNOFILE=65535
-MemoryMax=512M
+MemoryMax=256M
 
 # Logging
 StandardOutput=journal
@@ -45,4 +45,3 @@ SyslogIdentifier=p2pool-observer-api
 
 [Install]
 WantedBy=multi-user.target
-

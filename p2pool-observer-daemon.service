@@ -3,7 +3,7 @@
 [Unit]
 Description=P2Pool Salvium Observer Daemon
 Documentation=https://github.com/salvium/p2pool-salvium-observer
-After=network-online.target valkey.service salviumd.service
+After=network-online.target valkey.service salviumd.service p2pool-salvium.service
 Wants=network-online.target
 Requires=valkey.service
 
@@ -13,26 +13,14 @@ User=p2pool
 Group=p2pool
 WorkingDirectory=/srv/p2pool-observer
 
-# Main process
-# Example with 4 Salvium RPC endpoints (3 public seeds + 1 local):
+# New clean daemon - reads from p2pool:cache in Redis, calculates PPLNS, stores stats
 ExecStart=/srv/p2pool-observer/daemon \
-  --salvium-rpc=http://127.0.0.1:19081,http://seed01.salvium.io:19081,http://seed02.salvium.io:19081,http://seed03.salvium.io:19081 \
-  --data-api=/srv/p2pool/data-api \
-  --cache=/srv/p2pool/p2pool.cache \
   --redis=localhost:6379 \
-  --full-mode
+  --salvium-rpc=http://127.0.0.1:19081,http://seed01.salvium.io:19081,http://seed02.salvium.io:19081,http://seed03.salvium.io:19081 \
+  --interval=10s
 
-# Alternative: Single endpoint (backward compatible)
-# ExecStart=/srv/p2pool-observer/daemon \
-#   --host=127.0.0.1 \
-#   --rpc-port=19081 \
-#   --data-api=/srv/p2pool/data-api \
-#   --cache=/srv/p2pool/p2pool.cache \
-#   --redis=localhost:6379 \
-#   --full-mode
-
-# Graceful shutdown with 45s timeout
-TimeoutStopSec=45
+# Graceful shutdown
+TimeoutStopSec=30
 KillMode=mixed
 KillSignal=SIGTERM
 
@@ -45,12 +33,11 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/srv/p2pool /srv/p2pool-observer
+ReadWritePaths=/srv/p2pool-observer
 
-# Resource limits
+# Resource limits (new daemon is lightweight - no RandomX)
 LimitNOFILE=65535
-# Memory: 2.3GB RandomX (full) + cache processing + Redis buffering = ~5GB needed
-MemoryMax=6G
+MemoryMax=512M
 
 # Logging
 StandardOutput=journal
@@ -59,4 +46,3 @@ SyslogIdentifier=p2pool-observer-daemon
 
 [Install]
 WantedBy=multi-user.target
-
