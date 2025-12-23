@@ -272,6 +272,55 @@ func (d Difficulty) Div64(v uint64) Difficulty {
 	return Difficulty{Lo: lo, Hi: hi}
 }
 
+// Div divides a difficulty by another difficulty (128-bit / 128-bit)
+// Returns the quotient. For PPLNS calculations, result typically fits in 64 bits.
+func (d Difficulty) Div(divisor Difficulty) Difficulty {
+	if divisor.IsZero() {
+		return Difficulty{Lo: 0, Hi: 0}
+	}
+
+	// If divisor fits in 64 bits, use Div64 for efficiency
+	if divisor.Hi == 0 {
+		return d.Div64(divisor.Lo)
+	}
+
+	// Full 128-bit division using binary long division
+	// For PPLNS: dividend ≈ w_cumulative * reward (up to ~90 bits)
+	// divisor = total_weight (up to ~70 bits)
+	// Result = payout (up to ~40 bits, fits easily in 64 bits)
+
+	var quotient Difficulty
+	var remainder Difficulty
+
+	// Process each bit from high to low (128 bits total)
+	for i := 127; i >= 0; i-- {
+		// Left shift remainder by 1
+		remainder.Hi = (remainder.Hi << 1) | (remainder.Lo >> 63)
+		remainder.Lo = remainder.Lo << 1
+
+		// Bring down next bit of dividend
+		var bit uint64
+		if i >= 64 {
+			bit = (d.Hi >> uint(i-64)) & 1
+		} else {
+			bit = (d.Lo >> uint(i)) & 1
+		}
+		remainder.Lo |= bit
+
+		// If remainder >= divisor, subtract and set quotient bit
+		if remainder.Cmp(divisor) >= 0 {
+			remainder = remainder.Sub(divisor)
+			if i >= 64 {
+				quotient.Hi |= 1 << uint(i-64)
+			} else {
+				quotient.Lo |= 1 << uint(i)
+			}
+		}
+	}
+
+	return quotient
+}
+
 // IsZero returns true if difficulty is zero
 func (d Difficulty) IsZero() bool {
 	return d.Lo == 0 && d.Hi == 0

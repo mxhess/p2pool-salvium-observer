@@ -135,6 +135,7 @@ type Daemon struct {
 	foundBlocks       []FoundBlock
 	processedPayouts  map[uint64]bool          // Block heights we've calculated payouts for
 	minerPayouts      map[string][]Payout      // Address -> list of payouts
+	pplnsSnapshots    map[uint64][]string      // Block height -> ordered miner addresses at discovery
 }
 
 func main() {
@@ -213,6 +214,7 @@ func main() {
 		shares:           make(map[p2pool.Hash]*p2pool.Share),
 		processedPayouts: make(map[uint64]bool),
 		minerPayouts:     make(map[string][]Payout),
+		pplnsSnapshots:   make(map[uint64][]string),
 	}
 
 	// Handle rebuild-payouts mode
@@ -665,6 +667,60 @@ func (d *Daemon) loadFoundBlocks() {
 	}
 
 	p2pool.Logf("FOUND", "Loaded %d found blocks", len(d.foundBlocks))
+
+	// Check for orphaned blocks
+	d.removeOrphanedBlocks()
+}
+
+// removeOrphanedBlocks checks each found block against the mainchain and removes orphans.
+// A block is orphaned if its hash doesn't match the mainchain block at that height.
+func (d *Daemon) removeOrphanedBlocks() {
+	if len(d.foundBlocks) == 0 {
+		return
+	}
+
+	ctx := d.ctx
+	orphanCount := 0
+	validBlocks := make([]FoundBlock, 0, len(d.foundBlocks))
+
+	for _, fb := range d.foundBlocks {
+		// Get the mainchain block at this height
+		header, err := d.salvium.GetBlockHeaderByHeight(ctx, fb.Height)
+		if err != nil {
+			// Can't verify - keep the block
+			p2pool.Errorf("ORPHAN", "Failed to verify block %d: %v", fb.Height, err)
+			validBlocks = append(validBlocks, fb)
+			continue
+		}
+
+		// Compare hashes (case-insensitive)
+		mainchainHash := header.BlockHeader.Hash
+		if mainchainHash != fb.Hash {
+			// Orphaned! The mainchain has a different block at this height
+			p2pool.Logf("ORPHAN", "Block %d orphaned - our hash: %s, mainchain: %s",
+				fb.Height, fb.Hash[:16]+"...", mainchainHash[:16]+"...")
+			orphanCount++
+
+			// Remove from p2pool:found_blocks list in Redis
+			entry := fmt.Sprintf("%d %d %s %s %s",
+				fb.Timestamp, fb.Height, fb.Hash, fb.Difficulty, fb.TotalHashes)
+			d.redis.LRem(ctx, "p2pool:found_blocks", 0, entry)
+			continue
+		}
+
+		// Valid block
+		validBlocks = append(validBlocks, fb)
+	}
+
+	if orphanCount > 0 {
+		d.foundBlocks = validBlocks
+		p2pool.Logf("ORPHAN", "Removed %d orphaned blocks, %d valid remain", orphanCount, len(validBlocks))
+
+		// Update cache:found_blocks
+		foundJSON, _ := json.Marshal(d.foundBlocks)
+		d.redis.Set(ctx, "cache:found_blocks", string(foundJSON), 0)
+		d.redis.Set(ctx, "stats:pool:blocks_found", len(d.foundBlocks), 0)
+	}
 }
 
 // storeEffort calculates and stores pool effort statistics
@@ -725,10 +781,17 @@ func (d *Daemon) storeEffort(tip *p2pool.Share) {
 }
 
 // calculatePayouts calculates and stores miner payouts for found blocks.
-// Uses actual on-chain coinbase outputs for precision.
-// IMPORTANT: Only calculates payouts for blocks within the current PPLNS window.
-// Blocks outside the window cannot have accurate payouts calculated because the
-// PPLNS state at the time they were found is no longer available.
+// Uses actual on-chain coinbase outputs and the CURRENT PPLNS state.
+//
+// When a NEW found block is detected, we immediately snapshot the current PPLNS miner order.
+// This snapshot is stored in Redis and used for payout calculation, ensuring accurate
+// attribution even if the PPLNS shifts before the next sync cycle.
+//
+// Algorithm:
+// 1. Detect new found blocks (not in processedPayouts)
+// 2. For new blocks, snapshot current PPLNS miner order if not already snapshotted
+// 3. Use the snapshot (ordered miner addresses) for position-based matching
+// 4. Match output[i] → miner[i] since both are sorted by weight
 func (d *Daemon) calculatePayouts(pplns *p2pool.PPLNSResult) {
 	ctx := d.ctx
 
@@ -736,20 +799,29 @@ func (d *Daemon) calculatePayouts(pplns *p2pool.PPLNSResult) {
 		return
 	}
 
-	// Load existing processed payouts from Redis on first run
+	// Load existing data from Redis on first run
 	if len(d.processedPayouts) == 0 {
 		d.loadProcessedPayouts()
 	}
-
-	// Load existing miner payouts from Redis on first run
 	if len(d.minerPayouts) == 0 {
 		d.loadMinerPayouts()
 	}
+	if len(d.pplnsSnapshots) == 0 {
+		d.loadPPLNSSnapshots()
+	}
+
+	// Get current miners sorted by weight for snapshotting new blocks
+	currentMiners := pplns.TopMiners(len(pplns.Shares))
+	currentMinerAddrs := make([]string, len(currentMiners))
+	for i, m := range currentMiners {
+		currentMinerAddrs[i] = m.Address.ToBase58()
+	}
 
 	newPayouts := 0
+	newSnapshots := 0
 	rewardsUpdated := false
 
-	// Process each found block (use index to modify reward in place)
+	// Process each found block
 	for i := range d.foundBlocks {
 		fb := &d.foundBlocks[i]
 
@@ -768,43 +840,29 @@ func (d *Daemon) calculatePayouts(pplns *p2pool.PPLNSResult) {
 			continue
 		}
 
-		// Only calculate payouts for blocks found within the current PPLNS window.
-		// The PPLNS window typically covers the last ~2160 sidechain blocks.
-		// If a found block is older than the bottom of the current window,
-		// we cannot accurately calculate payouts because the PPLNS has changed.
-		// Mark these as processed but don't calculate payouts (avoids incorrect data).
-		if fb.Timestamp > 0 && pplns.BottomHeight > 0 {
-			// Estimate: PPLNS window covers roughly 6 hours (2160 blocks * 10s)
-			// If block is older than ~6 hours, skip payout calculation
-			windowDuration := int64(6 * 60 * 60) // 6 hours in seconds
-			currentTime := time.Now().Unix()
-			if fb.Timestamp < currentTime-windowDuration {
-				p2pool.Logf("PAYOUT", "Block %d is outside PPLNS window (age: %d hours), skipping payout calculation",
-					fb.Height, (currentTime-fb.Timestamp)/3600)
-				d.processedPayouts[fb.Height] = true
-				continue
-			}
+		// NEW BLOCK DETECTED - snapshot PPLNS if we don't have one
+		minerAddrs, hasSnapshot := d.pplnsSnapshots[fb.Height]
+		if !hasSnapshot {
+			// Snapshot the current PPLNS miner order
+			d.pplnsSnapshots[fb.Height] = currentMinerAddrs
+			minerAddrs = currentMinerAddrs
+			newSnapshots++
+			p2pool.Logf("PAYOUT", "Block %d: snapshotted PPLNS with %d miners", fb.Height, len(minerAddrs))
 		}
 
-		// Fetch actual coinbase outputs from Salvium for precision
+		// Fetch actual coinbase outputs from Salvium
 		outputs, err := d.salvium.GetCoinbaseOutputs(ctx, fb.Height)
 		if err != nil {
 			p2pool.Errorf("PAYOUT", "Block %d: failed to get coinbase outputs: %v", fb.Height, err)
-			// Mark as processed to avoid retrying every cycle
-			d.processedPayouts[fb.Height] = true
 			continue
 		}
 
 		if len(outputs) == 0 {
 			p2pool.Errorf("PAYOUT", "Block %d: no coinbase outputs found", fb.Height)
-			d.processedPayouts[fb.Height] = true
 			continue
 		}
 
-		// Get ordered list of PPLNS miners (same order as coinbase outputs)
-		miners := pplns.GetOrderedMiners()
-
-		// Calculate total reward for percentage calculation
+		// Calculate total reward
 		var totalReward uint64
 		for _, out := range outputs {
 			totalReward += out
@@ -816,14 +874,27 @@ func (d *Daemon) calculatePayouts(pplns *p2pool.PPLNSResult) {
 			rewardsUpdated = true
 		}
 
-		// Match outputs to miners
-		minCount := len(miners)
-		if len(outputs) < minCount {
-			minCount = len(outputs)
+		// Sort outputs by amount descending (same order as miners by weight)
+		sortedOutputs := make([]uint64, len(outputs))
+		copy(sortedOutputs, outputs)
+		for i := 0; i < len(sortedOutputs)-1; i++ {
+			for j := i + 1; j < len(sortedOutputs); j++ {
+				if sortedOutputs[j] > sortedOutputs[i] {
+					sortedOutputs[i], sortedOutputs[j] = sortedOutputs[j], sortedOutputs[i]
+				}
+			}
 		}
 
-		for i := 0; i < minCount; i++ {
-			amount := outputs[i]
+		// Match by POSITION using SNAPSHOT: output[i] → minerAddrs[i]
+		matchCount := len(sortedOutputs)
+		if matchCount > len(minerAddrs) {
+			matchCount = len(minerAddrs)
+		}
+
+		for i := 0; i < matchCount; i++ {
+			amount := sortedOutputs[i]
+			addrStr := minerAddrs[i]
+
 			percentage := 0.0
 			if totalReward > 0 {
 				percentage = float64(amount) / float64(totalReward) * 100.0
@@ -837,18 +908,16 @@ func (d *Daemon) calculatePayouts(pplns *p2pool.PPLNSResult) {
 				Timestamp:   fb.Timestamp,
 			}
 
-			// Add to miner's payout list
-			addrStr := miners[i].ToBase58()
 			d.minerPayouts[addrStr] = append(d.minerPayouts[addrStr], payout)
 		}
 
-		p2pool.Logf("PAYOUT", "Block %d: %d payouts from on-chain data (total: %.4f SAL)",
-			fb.Height, minCount, float64(totalReward)/1e8)
+		p2pool.Logf("PAYOUT", "Block %d: assigned %d payouts (snapshot: %d miners, total: %.4f SAL)",
+			fb.Height, matchCount, len(minerAddrs), float64(totalReward)/1e8)
 		d.processedPayouts[fb.Height] = true
 		newPayouts++
 	}
 
-	if newPayouts > 0 {
+	if newPayouts > 0 || newSnapshots > 0 {
 		// Store miner payouts to Redis
 		for addr, payouts := range d.minerPayouts {
 			key := fmt.Sprintf("miner:%s:payouts", addr)
@@ -860,7 +929,11 @@ func (d *Daemon) calculatePayouts(pplns *p2pool.PPLNSResult) {
 		processedJSON, _ := json.Marshal(d.processedPayouts)
 		d.redis.Set(ctx, "cache:processed_payouts", string(processedJSON), 0)
 
-		p2pool.Logf("REDIS", "Calculated payouts for %d new blocks, %d miners", newPayouts, len(d.minerPayouts))
+		// Store PPLNS snapshots
+		snapshotsJSON, _ := json.Marshal(d.pplnsSnapshots)
+		d.redis.Set(ctx, "cache:pplns_snapshots", string(snapshotsJSON), 0)
+
+		p2pool.Logf("REDIS", "Calculated payouts for %d new blocks, %d snapshots, %d miners", newPayouts, newSnapshots, len(d.minerPayouts))
 	}
 
 	// Update found blocks cache if rewards were populated
@@ -881,6 +954,22 @@ func (d *Daemon) loadProcessedPayouts() {
 	}
 
 	json.Unmarshal([]byte(data), &d.processedPayouts)
+}
+
+// loadPPLNSSnapshots loads PPLNS snapshots from Redis
+// Snapshots store the ordered miner addresses at the time each block was found
+func (d *Daemon) loadPPLNSSnapshots() {
+	ctx := d.ctx
+
+	data, err := d.redis.Get(ctx, "cache:pplns_snapshots").Result()
+	if err != nil {
+		return
+	}
+
+	json.Unmarshal([]byte(data), &d.pplnsSnapshots)
+	if len(d.pplnsSnapshots) > 0 {
+		p2pool.Logf("REDIS", "Loaded %d PPLNS snapshots", len(d.pplnsSnapshots))
+	}
 }
 
 // loadMinerPayouts loads existing miner payouts from Redis
@@ -922,109 +1011,42 @@ func (d *Daemon) loadMinerPayouts() {
 	p2pool.Logf("REDIS", "Loaded payouts for %d miners", len(d.minerPayouts))
 }
 
-// rebuildPayoutsFromChain rebuilds payout data for a found block using on-chain data.
-// This fetches actual coinbase outputs from Salvium and matches them to PPLNS miners.
-func (d *Daemon) rebuildPayoutsFromChain(fb FoundBlock) ([]Payout, error) {
-	// 1. Find the sidechain block that was the tip at this mainchain height
-	tipShare := d.findShareByMainHeight(fb.Height)
-	if tipShare == nil {
-		return nil, fmt.Errorf("no sidechain block found for main height %d", fb.Height)
-	}
-
-	// 2. Rebuild PPLNS from that sidechain block
-	pplns := p2pool.CalculatePPLNS(d.shares, tipShare, d.mainchainDiff)
-	if pplns == nil || len(pplns.Shares) == 0 {
-		return nil, fmt.Errorf("failed to calculate PPLNS for block %d", fb.Height)
-	}
-
-	// 3. Fetch actual coinbase outputs from Salvium RPC
-	outputs, err := d.salvium.GetCoinbaseOutputs(d.ctx, fb.Height)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get coinbase outputs: %w", err)
-	}
-
-	if len(outputs) == 0 {
-		return nil, fmt.Errorf("no coinbase outputs found for block %d", fb.Height)
-	}
-
-	// 4. Get ordered list of PPLNS miners (same order as coinbase outputs)
-	miners := pplns.GetOrderedMiners()
-	if len(miners) != len(outputs) {
-		p2pool.Logf("PAYOUT", "Warning: miner count %d != output count %d for block %d",
-			len(miners), len(outputs), fb.Height)
-		// Use minimum of both to avoid index out of range
-		if len(miners) > len(outputs) {
-			miners = miners[:len(outputs)]
-		}
-	}
-
-	// 5. Match outputs to miners
-	payouts := make([]Payout, 0, len(miners))
-	var totalReward uint64
-	for _, out := range outputs {
-		totalReward += out
-	}
-
-	for i, miner := range miners {
-		if i >= len(outputs) {
-			break
-		}
-		amount := outputs[i]
-		percentage := 0.0
-		if totalReward > 0 {
-			percentage = float64(amount) / float64(totalReward) * 100.0
-		}
-
-		payouts = append(payouts, Payout{
-			BlockHeight: fb.Height,
-			BlockHash:   fb.Hash,
-			Amount:      amount,
-			Percentage:  percentage,
-			Timestamp:   fb.Timestamp,
-		})
-
-		// Store the payout for this miner
-		addrStr := miner.ToBase58()
-		d.minerPayouts[addrStr] = append(d.minerPayouts[addrStr], payouts[len(payouts)-1])
-	}
-
-	return payouts, nil
-}
-
-// findShareByMainHeight finds the sidechain block that was the tip at the given mainchain height.
-// It looks for the share with the matching MainchainHeight and highest SidechainHeight.
-func (d *Daemon) findShareByMainHeight(mainHeight uint64) *p2pool.Share {
-	var best *p2pool.Share
-
-	for _, share := range d.shares {
-		// Find shares at or before this mainchain height
-		if share.MainchainHeight == mainHeight {
-			if best == nil || share.SidechainHeight > best.SidechainHeight {
-				best = share
-			}
-		}
-	}
-
-	// If exact match not found, find closest lower mainchain height
-	if best == nil {
-		var closestHeight uint64
-		for _, share := range d.shares {
-			if share.MainchainHeight < mainHeight && share.MainchainHeight > closestHeight {
-				closestHeight = share.MainchainHeight
-				best = share
-			} else if share.MainchainHeight == closestHeight && share.SidechainHeight > best.SidechainHeight {
-				best = share
-			}
-		}
-	}
-
-	return best
-}
-
-// RebuildAllPayouts rebuilds payouts for all found blocks using on-chain data.
-// This is useful for data recovery after downtime or cache issues.
+// RebuildAllPayouts estimates payouts for all found blocks using current PPLNS ratios.
+//
+// Since the same miners have been mining at stable ratios, we can estimate historical
+// payouts by matching coinbase outputs to miners by POSITION (both sorted by weight/amount).
+//
+// Algorithm:
+// 1. Get current PPLNS miners sorted by weight (descending)
+// 2. For each found block, get coinbase outputs sorted by amount (descending)
+// 3. Match output[i] to miner[i] - both are in weight order
+//
+// This is an ESTIMATION for historical blocks where exact PPLNS is unavailable.
+// For new blocks (found while daemon is running), exact matching is used.
 func (d *Daemon) RebuildAllPayouts() error {
-	p2pool.Logf("REBUILD", "Starting payout rebuild for %d found blocks", len(d.foundBlocks))
+	p2pool.Logf("REBUILD", "Starting payout estimation for %d found blocks", len(d.foundBlocks))
+
+	// Find current tip for PPLNS calculation
+	tip := d.findTip()
+	if tip == nil {
+		return fmt.Errorf("no sidechain tip found")
+	}
+
+	// Calculate current PPLNS
+	pplns := p2pool.CalculatePPLNS(d.shares, tip, d.mainchainDiff)
+	if pplns == nil {
+		return fmt.Errorf("failed to calculate PPLNS")
+	}
+
+	// Get miners sorted by weight (descending) - same order as coinbase outputs
+	miners := pplns.TopMiners(len(pplns.Shares))
+	p2pool.Logf("REBUILD", "Current PPLNS: %d miners", len(miners))
+
+	// Log current miner weights for reference
+	for i, m := range miners {
+		pct := pplns.MinerPercentage(m.Address)
+		p2pool.Logf("REBUILD", "  Miner %d: %s (%.2f%%)", i, m.Address.ToTruncated(), pct)
+	}
 
 	// Clear existing payout data
 	d.minerPayouts = make(map[string][]Payout)
@@ -1034,16 +1056,62 @@ func (d *Daemon) RebuildAllPayouts() error {
 	errorCount := 0
 
 	for _, fb := range d.foundBlocks {
-		payouts, err := d.rebuildPayoutsFromChain(fb)
+		// Get coinbase outputs
+		outputs, err := d.salvium.GetCoinbaseOutputs(d.ctx, fb.Height)
 		if err != nil {
-			p2pool.Errorf("REBUILD", "Block %d: %v", fb.Height, err)
+			p2pool.Errorf("REBUILD", "Block %d: failed to get outputs: %v", fb.Height, err)
 			errorCount++
 			continue
 		}
 
+		if len(outputs) == 0 {
+			p2pool.Errorf("REBUILD", "Block %d: no coinbase outputs", fb.Height)
+			errorCount++
+			continue
+		}
+
+		// Sort outputs by amount descending (same order as miners by weight)
+		sortedOutputs := make([]uint64, len(outputs))
+		copy(sortedOutputs, outputs)
+		for i := 0; i < len(sortedOutputs)-1; i++ {
+			for j := i + 1; j < len(sortedOutputs); j++ {
+				if sortedOutputs[j] > sortedOutputs[i] {
+					sortedOutputs[i], sortedOutputs[j] = sortedOutputs[j], sortedOutputs[i]
+				}
+			}
+		}
+
+		var totalReward uint64
+		for _, out := range outputs {
+			totalReward += out
+		}
+
+		// Match by position: output[i] → miner[i]
+		// Both are sorted by weight/amount descending
+		matchCount := len(sortedOutputs)
+		if matchCount > len(miners) {
+			matchCount = len(miners)
+		}
+
+		for i := 0; i < matchCount; i++ {
+			amount := sortedOutputs[i]
+			miner := miners[i]
+
+			payout := Payout{
+				BlockHeight: fb.Height,
+				BlockHash:   fb.Hash,
+				Amount:      amount,
+				Percentage:  float64(amount) / float64(totalReward) * 100.0,
+				Timestamp:   fb.Timestamp,
+			}
+			addrStr := miner.Address.ToBase58()
+			d.minerPayouts[addrStr] = append(d.minerPayouts[addrStr], payout)
+		}
+
 		d.processedPayouts[fb.Height] = true
 		successCount++
-		p2pool.Logf("REBUILD", "Block %d: rebuilt %d payouts", fb.Height, len(payouts))
+		p2pool.Logf("REBUILD", "Block %d: assigned %d payouts (total %.4f SAL)",
+			fb.Height, matchCount, float64(totalReward)/1e8)
 	}
 
 	// Store rebuilt payouts to Redis
@@ -1057,7 +1125,18 @@ func (d *Daemon) RebuildAllPayouts() error {
 	processedJSON, _ := json.Marshal(d.processedPayouts)
 	d.redis.Set(ctx, "cache:processed_payouts", string(processedJSON), 0)
 
-	p2pool.Logf("REBUILD", "Complete: %d successful, %d errors, %d miners",
+	// Log summary per miner
+	p2pool.Logf("REBUILD", "=== Payout Summary ===")
+	for addr, payouts := range d.minerPayouts {
+		var total uint64
+		for _, p := range payouts {
+			total += p.Amount
+		}
+		p2pool.Logf("REBUILD", "  %s: %d blocks, %.4f SAL total",
+			p2pool.TruncateAddress(addr), len(payouts), float64(total)/1e8)
+	}
+
+	p2pool.Logf("REBUILD", "Complete: %d blocks processed, %d errors, %d miners",
 		successCount, errorCount, len(d.minerPayouts))
 
 	return nil

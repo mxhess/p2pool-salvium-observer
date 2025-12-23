@@ -266,7 +266,17 @@ func (mw *MinerWeight) UnclePositionString() string {
 // EstimatedPayout calculates the estimated payout for each miner if a block is found.
 // Returns a map of miner address -> estimated payout in atomic units.
 //
-// This matches C++ SideChain::split_reward() logic.
+// This EXACTLY matches C++ SideChain::split_reward() from side_chain.cpp:1381-1413
+// using cumulative integer math to achieve 1e-8 (atomic unit) precision.
+//
+// Algorithm:
+//  1. Sort shares by weight (descending) - same order as TopMiners()
+//  2. For each miner in order:
+//     - Add weight to cumulative: w_cumulative += miner.weight
+//     - Calculate: next_value = (w_cumulative * reward) / total_weight
+//     - Payout = next_value - previous_given
+//     - Update: previous_given = next_value
+//  3. This ensures exact distribution with dust going to last miner
 func (r *PPLNSResult) EstimatedPayout(blockReward uint64) map[Address]uint64 {
 	payouts := make(map[Address]uint64)
 
@@ -274,29 +284,64 @@ func (r *PPLNSResult) EstimatedPayout(blockReward uint64) map[Address]uint64 {
 		return payouts
 	}
 
-	// For each miner: payout = (blockReward * minerWeight) / totalWeight
-	// IMPORTANT: blockReward * weight can overflow uint64, so we use float64
-	// which has enough precision for payout calculations (53 bits mantissa)
-	for addr, mw := range r.Shares {
-		// Calculate weight ratio as float64 to avoid overflow
-		var weightRatio float64
-		if r.TotalWeight.Hi == 0 && mw.Weight.Hi == 0 {
-			// Both fit in 64 bits - use float64 for precision
-			weightRatio = float64(mw.Weight.Lo) / float64(r.TotalWeight.Lo)
-		} else {
-			// 128-bit math: convert to float64 approximation
-			// weight = Hi * 2^64 + Lo
-			minerWeight := float64(mw.Weight.Hi)*float64(1<<64) + float64(mw.Weight.Lo)
-			totalWeight := float64(r.TotalWeight.Hi)*float64(1<<64) + float64(r.TotalWeight.Lo)
-			weightRatio = minerWeight / totalWeight
-		}
+	// Get miners sorted by weight descending (same order as coinbase outputs)
+	miners := r.TopMiners(len(r.Shares))
 
-		// Calculate payout: blockReward * (weight / totalWeight)
-		payout := uint64(float64(blockReward) * weightRatio)
-		payouts[addr] = payout
+	// Cumulative weight tracking (128-bit)
+	var wCumulative Difficulty
+	var rewardGiven uint64
+
+	for _, mw := range miners {
+		// Add this miner's weight to cumulative
+		wCumulative = wCumulative.Add(mw.Weight)
+
+		// Calculate: next_value = (w_cumulative * reward) / total_weight
+		// Using 128-bit math: Mul64 gives 128-bit result, then Div gives quotient
+		product := wCumulative.Mul64(blockReward)
+		nextValue := product.Div(r.TotalWeight)
+
+		// Payout is the difference from what we've already given
+		payout := nextValue.Lo - rewardGiven
+		payouts[mw.Address] = payout
+		rewardGiven = nextValue.Lo
 	}
 
 	return payouts
+}
+
+// EstimatedPayoutOrdered returns payouts in the same order as miners (for coinbase matching).
+// Returns slice of (address, amount) pairs in weight-descending order.
+func (r *PPLNSResult) EstimatedPayoutOrdered(blockReward uint64) []struct {
+	Address Address
+	Amount  uint64
+} {
+	if r.TotalWeight.IsZero() {
+		return nil
+	}
+
+	miners := r.TopMiners(len(r.Shares))
+	result := make([]struct {
+		Address Address
+		Amount  uint64
+	}, len(miners))
+
+	var wCumulative Difficulty
+	var rewardGiven uint64
+
+	for i, mw := range miners {
+		wCumulative = wCumulative.Add(mw.Weight)
+		product := wCumulative.Mul64(blockReward)
+		nextValue := product.Div(r.TotalWeight)
+
+		payout := nextValue.Lo - rewardGiven
+		result[i] = struct {
+			Address Address
+			Amount  uint64
+		}{mw.Address, payout}
+		rewardGiven = nextValue.Lo
+	}
+
+	return result
 }
 
 // MinerPercentage returns the percentage of the PPLNS window owned by a miner.

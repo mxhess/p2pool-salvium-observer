@@ -21,4 +21,3 @@ echo "Build complete. Binaries in $BINDIR/"
 ls -lh "$BINDIR/"
 
 echo ""
-echo "NOTE: web and p2plistener not built - need migration from old consensus package"
