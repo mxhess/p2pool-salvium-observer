@@ -31,6 +31,8 @@ type PPLNSMinerData struct {
 	ShareCount      int     `json:"share_count"`      // Number of main shares in window
 	UncleCount      int     `json:"uncle_count"`      // Number of uncle shares in window
 	Hashrate        float64 `json:"hashrate"`         // Estimated hashrate in H/s
+	SharePosition   string  `json:"share_position"`   // Visual: [+++++++++++++++++++++++++++++.]
+	UnclePosition   string  `json:"uncle_position"`   // Visual: [...........1...............1..]
 }
 
 // PPLNSFullData represents complete PPLNS data for Redis storage
@@ -78,6 +80,7 @@ type FoundBlock struct {
 	Hash        string `json:"hash"`
 	Difficulty  string `json:"difficulty"`
 	TotalHashes string `json:"total_hashes"` // Cumulative hashes at time of find
+	Reward      uint64 `json:"reward"`       // Block reward in atomic units (fetched from chain)
 }
 
 // EffortStats represents current pool effort statistics
@@ -393,6 +396,8 @@ func (d *Daemon) storePPLNS(pplns *p2pool.PPLNSResult) {
 			ShareCount:      mw.ShareCount,
 			UncleCount:      mw.UncleCount,
 			Hashrate:        hashrate,
+			SharePosition:   mw.SharePositionString(),
+			UnclePosition:   mw.UnclePositionString(),
 		}
 		fullData.Miners = append(fullData.Miners, minerData)
 	}
@@ -742,11 +747,24 @@ func (d *Daemon) calculatePayouts(pplns *p2pool.PPLNSResult) {
 	}
 
 	newPayouts := 0
+	rewardsUpdated := false
 
-	// Process each found block
-	for _, fb := range d.foundBlocks {
-		// Skip if already processed
+	// Process each found block (use index to modify reward in place)
+	for i := range d.foundBlocks {
+		fb := &d.foundBlocks[i]
+
+		// If already processed but missing reward, just fetch reward
 		if d.processedPayouts[fb.Height] {
+			if fb.Reward == 0 {
+				if outputs, err := d.salvium.GetCoinbaseOutputs(ctx, fb.Height); err == nil && len(outputs) > 0 {
+					var total uint64
+					for _, out := range outputs {
+						total += out
+					}
+					fb.Reward = total
+					rewardsUpdated = true
+				}
+			}
 			continue
 		}
 
@@ -790,6 +808,12 @@ func (d *Daemon) calculatePayouts(pplns *p2pool.PPLNSResult) {
 		var totalReward uint64
 		for _, out := range outputs {
 			totalReward += out
+		}
+
+		// Store reward in found block if not already set
+		if fb.Reward == 0 && totalReward > 0 {
+			fb.Reward = totalReward
+			rewardsUpdated = true
 		}
 
 		// Match outputs to miners
@@ -837,6 +861,13 @@ func (d *Daemon) calculatePayouts(pplns *p2pool.PPLNSResult) {
 		d.redis.Set(ctx, "cache:processed_payouts", string(processedJSON), 0)
 
 		p2pool.Logf("REDIS", "Calculated payouts for %d new blocks, %d miners", newPayouts, len(d.minerPayouts))
+	}
+
+	// Update found blocks cache if rewards were populated
+	if rewardsUpdated {
+		foundJSON, _ := json.Marshal(d.foundBlocks)
+		d.redis.Set(ctx, "cache:found_blocks", string(foundJSON), 0)
+		p2pool.Logf("REDIS", "Updated found blocks with reward data")
 	}
 }
 

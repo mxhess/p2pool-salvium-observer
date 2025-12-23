@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sidechain Shares - P2Pool Salvium</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+    <div class="content center">
+        <nav style="margin-bottom: 2rem; text-align: center;">
+            <a href="." class="nav-item">Home</a> |
+            <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="shares.html" class="nav-item">Shares</a> |
+            <a href="miners.html" class="nav-item">Miners</a> |
+            <a href="calculator.html" class="nav-item">Calculator</a>
+        </nav>
+
+        <h1 style="text-align: center; margin-bottom: 2rem;">Sidechain Shares</h1>
+
+        <div class="stats-grid" style="margin-bottom: 2rem;">
+            <div class="stat-card">
+                <h3>Tip Height</h3>
+                <div class="value" id="tip-height">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>PPLNS Window</h3>
+                <div class="value" id="window-size">2160</div>
+            </div>
+            <div class="stat-card">
+                <h3>Window Start</h3>
+                <div class="value" id="window-start">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Avg Block Time</h3>
+                <div class="value" id="avg-time">--</div>
+            </div>
+        </div>
+
+        <div id="shares-container">
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        async function load() {
+            const shares = await API.getSideBlocks(100);
+            const container = document.getElementById('shares-container');
+
+            if (!shares || shares.length === 0) {
+                container.innerHTML = '<p>No shares found</p>';
+                return;
+            }
+
+            // Sort by height descending (newest first)
+            shares.sort((a, b) => (b.side_height || 0) - (a.side_height || 0));
+
+            // Stats
+            const tipHeight = shares[0]?.side_height || 0;
+            const windowStart = Math.max(0, tipHeight - 2160);
+
+            document.getElementById('tip-height').textContent = tipHeight.toLocaleString();
+            document.getElementById('window-start').textContent = windowStart.toLocaleString();
+
+            // Calculate average block time from recent shares
+            if (shares.length >= 2) {
+                const newest = shares[0].timestamp;
+                const oldest = shares[shares.length - 1].timestamp;
+                const timeSpan = newest - oldest;
+                const avgTime = timeSpan / (shares.length - 1);
+                document.getElementById('avg-time').textContent = avgTime.toFixed(1) + 's';
+            }
+
+            let html = '<table class="data-table"><thead><tr><th>Height</th><th>Miner</th><th>Difficulty</th><th>Main Height</th><th>Age</th></tr></thead><tbody>';
+            for (const share of shares) {
+                const height = share.side_height || '--';
+                const miner = share.miner_address || '--';
+                const templateId = share.template_id || '';
+                const inWindow = tipHeight - height < 2160;
+                const rowClass = inWindow ? '' : 'style="opacity: 0.5;"';
+
+                html += `<tr ${rowClass}>
+                    <td><a href="share.html?id=${templateId}">${height}</a></td>
+                    <td class="mono">${miner}</td>
+                    <td>${share.difficulty ? Utils.formatDifficulty(parseFloat(share.difficulty)) : '--'}</td>
+                    <td>${share.main_height || '--'}</td>
+                    <td>${share.timestamp ? Utils.timeAgo(share.timestamp) : '--'}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        load();
+        startAutoRefresh(load, 30000);
+    </script>
+</body>
+</html>

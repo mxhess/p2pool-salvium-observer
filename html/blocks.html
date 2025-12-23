@@ -12,6 +12,7 @@
         <nav style="margin-bottom: 2rem; text-align: center;">
             <a href="." class="nav-item">Home</a> |
             <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="shares.html" class="nav-item">Shares</a> |
             <a href="miners.html" class="nav-item">Miners</a> |
             <a href="calculator.html" class="nav-item">Calculator</a>
         </nav>
@@ -45,7 +46,11 @@
     <script src="app.js"></script>
     <script>
         async function load() {
-            const blocks = await API.getFoundBlocks(100);
+            const [blocks, poolInfo] = await Promise.all([
+                API.getFoundBlocks(100),
+                API.getPoolInfo()
+            ]);
+            const blockReward = poolInfo?.block_reward;
             const container = document.getElementById('blocks-container');
 
             if (!blocks || blocks.length === 0) {
@@ -97,16 +102,18 @@
                 document.getElementById('last-block').textContent = Utils.timeAgo(blocks[0].timestamp);
             }
 
-            let html = '<table class="data-table"><thead><tr><th>Salvium Height</th><th>Block Hash</th><th>Difficulty</th><th>Effort</th><th>Age</th></tr></thead><tbody>';
+            let html = '<table class="data-table"><thead><tr><th>Salvium Height</th><th>Block Hash</th><th>Reward</th><th>Difficulty</th><th>Effort</th><th>Age</th></tr></thead><tbody>';
             for (const block of blocks) {
                 const height = block.height || block.main_height || '--';
                 const hash = block.hash || '--';
                 const hashShort = hash.length > 16 ? hash.substring(0, 8) + '...' + hash.substring(hash.length - 8) : hash;
                 const effort = block.effort !== null ? block.effort.toFixed(1) + '%' : '--';
+                const reward = block.reward || blockReward;
                 const explorerUrl = hash !== '--' ? `https://explorer.salvium.io/block/${hash}` : '#';
                 html += `<tr id="block-${height}">
                     <td><a href="https://explorer.salvium.io/block/${height}" target="_blank" rel="noopener">${height}</a></td>
                     <td class="mono"><a href="${explorerUrl}" target="_blank" rel="noopener">${hashShort}</a></td>
+                    <td>${reward ? Utils.formatSALShort(reward) : '--'}</td>
                     <td>${block.difficulty ? Utils.formatDifficulty(parseFloat(block.difficulty)) : '--'}</td>
                     <td>${effort}</td>
                     <td>${block.timestamp ? Utils.timeAgo(block.timestamp) : '--'}</td>

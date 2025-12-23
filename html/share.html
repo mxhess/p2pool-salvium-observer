@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Share Details - P2Pool Salvium</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+    <div class="content center">
+        <nav style="margin-bottom: 2rem; text-align: center;">
+            <a href="." class="nav-item">Home</a> |
+            <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="shares.html" class="nav-item">Shares</a> |
+            <a href="miners.html" class="nav-item">Miners</a> |
+            <a href="calculator.html" class="nav-item">Calculator</a>
+        </nav>
+
+        <h1 style="text-align: center; margin-bottom: 2rem;">Share Details</h1>
+
+        <div id="share-content" style="display: none;">
+            <!-- Navigation -->
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <a href="#" id="prev-share" class="nav-item" style="margin-right: 2rem;">&larr; Previous</a>
+                <a href="#" id="next-share" class="nav-item">&rarr; Next</a>
+            </div>
+
+            <!-- Share Info -->
+            <div class="info-card" style="margin-bottom: 1.5rem;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="color: var(--color-dim); width: 150px;">Template ID</td>
+                        <td class="mono" id="template-id" style="word-break: break-all;">--</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--color-dim);">Sidechain Height</td>
+                        <td id="side-height">--</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--color-dim);">Main Height</td>
+                        <td id="main-height">--</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--color-dim);">Miner</td>
+                        <td class="mono" id="miner-addr">--</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--color-dim);">Difficulty</td>
+                        <td id="difficulty">--</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--color-dim);">Cumulative Diff</td>
+                        <td id="cumulative-diff">--</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--color-dim);">Timestamp</td>
+                        <td id="timestamp">--</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--color-dim);">Age</td>
+                        <td id="age">--</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--color-dim);">Parent</td>
+                        <td class="mono"><a href="#" id="parent-link" style="word-break: break-all;">--</a></td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- PPLNS Status -->
+            <div class="info-card" id="pplns-status" style="margin-bottom: 1.5rem;">
+                <div style="color: var(--color-dim);">PPLNS Window Status</div>
+                <div id="pplns-text" style="margin-top: 0.5rem; font-size: 1.2em;">--</div>
+            </div>
+        </div>
+
+        <!-- Not Found -->
+        <div id="not-found" class="message" style="display: none;">
+            <h2 class="txtmed C1">Share Not Found</h2>
+            <p style="margin-top: 1rem;">The requested share could not be found.</p>
+            <p style="margin-top: 1rem;"><a href="shares.html">View recent shares</a></p>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="loading">Loading...</div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let currentHeight = null;
+
+        async function loadShare(id) {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('share-content').style.display = 'none';
+            document.getElementById('not-found').style.display = 'none';
+
+            const share = await API.getBlock(id);
+
+            document.getElementById('loading').style.display = 'none';
+
+            if (!share) {
+                document.getElementById('not-found').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('share-content').style.display = 'block';
+            currentHeight = share.side_height;
+
+            // Populate fields
+            document.getElementById('template-id').textContent = share.template_id || id;
+            document.getElementById('side-height').textContent = share.side_height?.toLocaleString() || '--';
+            document.getElementById('main-height').textContent = share.main_height?.toLocaleString() || '--';
+
+            const minerAddr = share.miner_address || '--';
+            document.getElementById('miner-addr').textContent = minerAddr;
+
+            document.getElementById('difficulty').textContent = share.difficulty ? Utils.formatDifficulty(parseFloat(share.difficulty)) : '--';
+            document.getElementById('cumulative-diff').textContent = share.cumulative_difficulty ? Utils.formatDifficulty(parseFloat(share.cumulative_difficulty)) : '--';
+
+            if (share.timestamp) {
+                const date = new Date(share.timestamp * 1000);
+                document.getElementById('timestamp').textContent = date.toLocaleString();
+                document.getElementById('age').textContent = Utils.timeAgo(share.timestamp);
+            }
+
+            const parentLink = document.getElementById('parent-link');
+            if (share.parent) {
+                parentLink.textContent = share.parent;
+                parentLink.href = `share.html?id=${share.parent}`;
+            } else {
+                parentLink.textContent = '--';
+                parentLink.href = '#';
+            }
+
+            // Navigation
+            const prevLink = document.getElementById('prev-share');
+            const nextLink = document.getElementById('next-share');
+
+            if (share.side_height > 0) {
+                prevLink.href = `share.html?height=${share.side_height - 1}`;
+                prevLink.style.visibility = 'visible';
+            } else {
+                prevLink.style.visibility = 'hidden';
+            }
+            nextLink.href = `share.html?height=${share.side_height + 1}`;
+
+            // PPLNS status - fetch current tip to compare
+            const poolInfo = await API.getPoolInfo();
+            const tipHeight = poolInfo?.sidechain_height || 0;
+            const blocksFromTip = tipHeight - share.side_height;
+            const pplnsText = document.getElementById('pplns-text');
+
+            if (blocksFromTip < 0) {
+                pplnsText.textContent = 'Ahead of tip (pending)';
+                pplnsText.style.color = 'var(--color-warn)';
+            } else if (blocksFromTip < 2160) {
+                pplnsText.textContent = `In window (${blocksFromTip} blocks from tip)`;
+                pplnsText.style.color = 'var(--color-success)';
+            } else {
+                pplnsText.textContent = `Out of window (${blocksFromTip - 2160} blocks ago)`;
+                pplnsText.style.color = 'var(--color-dim)';
+            }
+        }
+
+        async function loadByHeight(height) {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('share-content').style.display = 'none';
+            document.getElementById('not-found').style.display = 'none';
+
+            try {
+                const response = await fetch(API_BASE + `/block_by_height/${height}`);
+                if (!response.ok) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('not-found').style.display = 'block';
+                    return;
+                }
+                const share = await response.json();
+                if (share && share.template_id) {
+                    // Update URL without reload
+                    history.replaceState(null, '', `share.html?id=${share.template_id}`);
+                    await loadShare(share.template_id);
+                }
+            } catch (e) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('not-found').style.display = 'block';
+            }
+        }
+
+        // Init
+        const params = Utils.getUrlParams();
+        if (params.id) {
+            loadShare(params.id);
+        } else if (params.height) {
+            loadByHeight(params.height);
+        } else {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('not-found').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

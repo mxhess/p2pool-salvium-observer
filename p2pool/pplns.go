@@ -17,12 +17,19 @@ const (
 	AtomicUnits = 100_000_000
 )
 
+// PositionBuckets is the number of buckets for position visualization
+const PositionBuckets = 30
+
 // MinerWeight tracks a miner's accumulated weight in the PPLNS window
 type MinerWeight struct {
 	Address    Address
 	Weight     Difficulty
 	ShareCount int // Number of main shares in window
 	UncleCount int // Number of uncle shares in window
+
+	// Position tracking for visualization (30 buckets across window)
+	ShareBuckets [PositionBuckets]int // Count of shares per bucket
+	UncleBuckets [PositionBuckets]int // Count of uncles per bucket
 }
 
 // PPLNSResult contains the full PPLNS calculation result
@@ -87,6 +94,17 @@ func CalculatePPLNS(shares map[Hash]*Share, tip *Share, mainchainDiff Difficulty
 		curWeight := cur.Difficulty
 		bottomTimestamp = cur.Timestamp // Update as we go
 
+		// Calculate position bucket for current share (0 = newest, PositionBuckets-1 = oldest)
+		// C++: window_index = block_depth * (N - 1) / (window_size - 1)
+		// This maps [0, window_size-1] to [0, N-1]
+		bucket := 0
+		if PPLNSWindow > 1 {
+			bucket = (blockDepth * (PositionBuckets - 1)) / (PPLNSWindow - 1)
+		}
+		if bucket >= PositionBuckets {
+			bucket = PositionBuckets - 1
+		}
+
 		// Process uncles
 		for _, uncleId := range cur.Uncles {
 			uncle, ok := shares[uncleId]
@@ -123,15 +141,16 @@ func CalculatePPLNS(shares map[Hash]*Share, tip *Share, mainchainDiff Difficulty
 			// C++: cur_weight += uncle_penalty;
 			curWeight = curWeight.Add(unclePenalty)
 
-			// Add uncle weight to uncle's miner (isUncle=true)
-			addWeight(result.Shares, uncle.MinerWallet, uncleWeight, true)
+			// Uncle uses the same bucket as its parent block (C++ line 1162)
+			// C++: ++our_uncles_in_window[window_index];
+			addWeight(result.Shares, uncle.MinerWallet, uncleWeight, true, bucket)
 			pplnsWeight = newPplnsWeight
 			result.UnclesIncluded++
 		}
 
 		// Always add non-uncle shares even if PPLNS weight goes above the limit
 		// C++: auto result = shares_set.emplace(cur_weight, &cur->m_minerWallet);
-		addWeight(result.Shares, cur.MinerWallet, curWeight, false)
+		addWeight(result.Shares, cur.MinerWallet, curWeight, false, bucket)
 		pplnsWeight = pplnsWeight.Add(curWeight)
 		result.BlocksIncluded++
 		result.BottomHeight = cur.SidechainHeight
@@ -170,13 +189,20 @@ func CalculatePPLNS(shares map[Hash]*Share, tip *Share, mainchainDiff Difficulty
 }
 
 // addWeight adds weight to a miner's accumulated weight
-func addWeight(shares map[Address]*MinerWeight, addr Address, weight Difficulty, isUncle bool) {
+// bucket is the position bucket (0 = newest, PositionBuckets-1 = oldest)
+func addWeight(shares map[Address]*MinerWeight, addr Address, weight Difficulty, isUncle bool, bucket int) {
 	if mw, ok := shares[addr]; ok {
 		mw.Weight = mw.Weight.Add(weight)
 		if isUncle {
 			mw.UncleCount++
+			if bucket >= 0 && bucket < PositionBuckets {
+				mw.UncleBuckets[bucket]++
+			}
 		} else {
 			mw.ShareCount++
+			if bucket >= 0 && bucket < PositionBuckets {
+				mw.ShareBuckets[bucket]++
+			}
 		}
 	} else {
 		mw := &MinerWeight{
@@ -185,11 +211,56 @@ func addWeight(shares map[Address]*MinerWeight, addr Address, weight Difficulty,
 		}
 		if isUncle {
 			mw.UncleCount = 1
+			if bucket >= 0 && bucket < PositionBuckets {
+				mw.UncleBuckets[bucket] = 1
+			}
 		} else {
 			mw.ShareCount = 1
+			if bucket >= 0 && bucket < PositionBuckets {
+				mw.ShareBuckets[bucket] = 1
+			}
 		}
 		shares[addr] = mw
 	}
+}
+
+// SharePositionString generates the share position visualization string
+// e.g., "[+++++++++++++++++++++++++++++1]"
+// Shows digit 1-9 for count, '+' for 10+, '.' for 0
+func (mw *MinerWeight) SharePositionString() string {
+	var buf [PositionBuckets + 2]byte
+	buf[0] = '['
+	for i := 0; i < PositionBuckets; i++ {
+		count := mw.ShareBuckets[i]
+		if count == 0 {
+			buf[i+1] = '.'
+		} else if count < 10 {
+			buf[i+1] = byte('0' + count)
+		} else {
+			buf[i+1] = '+'
+		}
+	}
+	buf[PositionBuckets+1] = ']'
+	return string(buf[:])
+}
+
+// UnclePositionString generates the uncle position visualization string
+// e.g., "[...........1...............1..]"
+func (mw *MinerWeight) UnclePositionString() string {
+	var buf [PositionBuckets + 2]byte
+	buf[0] = '['
+	for i := 0; i < PositionBuckets; i++ {
+		count := mw.UncleBuckets[i]
+		if count == 0 {
+			buf[i+1] = '.'
+		} else if count < 10 {
+			buf[i+1] = byte('0' + count)
+		} else {
+			buf[i+1] = '+'
+		}
+	}
+	buf[PositionBuckets+1] = ']'
+	return string(buf[:])
 }
 
 // EstimatedPayout calculates the estimated payout for each miner if a block is found.

@@ -13,6 +13,7 @@
         <nav style="margin-bottom: 2rem; text-align: center;">
             <a href="." class="nav-item">Home</a> |
             <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="shares.html" class="nav-item">Shares</a> |
             <a href="miners.html" class="nav-item">Miners</a> |
             <a href="calculator.html" class="nav-item">Calculator</a>
         </nav>
@@ -31,7 +32,7 @@
         <div class="stats-grid">
             <div class="stat-card">
                 <h3>P2Pool Height</h3>
-                <div class="value" id="sidechain-height">--</div>
+                <div class="value"><a href="shares.html" id="sidechain-height">--</a></div>
             </div>
             <div class="stat-card">
                 <h3>Pool Hashrate</h3>
@@ -62,8 +63,8 @@
                 <div class="value" id="network-diff">--</div>
             </div>
             <div class="stat-card">
-                <h3>Blocks Found</h3>
-                <div class="value" id="blocks-found">--</div>
+                <h3>Block Reward</h3>
+                <div class="value" id="block-reward">--</div>
             </div>
         </div>
 
@@ -114,7 +115,7 @@
             }
         }
 
-        function renderFoundBlocks(blocks) {
+        function renderFoundBlocks(blocks, blockReward) {
             const container = document.getElementById('found-blocks-container');
             if (!blocks || blocks.length === 0) {
                 container.innerHTML = '<p>No blocks found yet</p>';
@@ -140,16 +141,18 @@
             // Now reverse for display (newest first)
             sorted.reverse();
 
-            let html = '<table class="data-table"><thead><tr><th>Salvium Height</th><th>Block Hash</th><th>Difficulty</th><th>Effort</th><th>Age</th></tr></thead><tbody>';
+            let html = '<table class="data-table"><thead><tr><th>Salvium Height</th><th>Block Hash</th><th>Reward</th><th>Difficulty</th><th>Effort</th><th>Age</th></tr></thead><tbody>';
             for (const block of sorted.slice(0, 10)) {
                 const height = block.height || '--';
                 const hash = block.hash || '--';
                 const hashShort = hash.length > 16 ? hash.substring(0, 8) + '...' + hash.substring(hash.length - 8) : hash;
                 const effort = block.effort !== null ? block.effort.toFixed(1) + '%' : '--';
+                const reward = block.reward || blockReward;
                 const explorerUrl = hash !== '--' ? `https://explorer.salvium.io/block/${hash}` : '#';
                 html += `<tr>
                     <td><a href="blocks.html#${height}">${height}</a></td>
                     <td class="mono"><a href="${explorerUrl}" target="_blank" rel="noopener">${hashShort}</a></td>
+                    <td>${reward ? Utils.formatSALShort(reward) : '--'}</td>
                     <td>${block.difficulty ? Utils.formatDifficulty(parseFloat(block.difficulty)) : '--'}</td>
                     <td>${effort}</td>
                     <td>${block.timestamp ? Utils.timeAgo(block.timestamp) : '--'}</td>
@@ -171,8 +174,9 @@
                 const addr = share.miner || share.miner_address || '--';
                 const sideHeight = share.side_height || share.height || '--';
                 const mainHeight = share.main_height || '--';
+                const templateId = share.template_id || '';
                 html += `<tr>
-                    <td>${sideHeight}</td>
+                    <td><a href="share.html?id=${templateId}">${sideHeight}</a></td>
                     <td>${mainHeight}</td>
                     <td class="miner-address">${Utils.truncateAddress(addr)}</td>
                     <td>${share.difficulty ? Utils.formatDifficulty(share.difficulty) : '--'}</td>
@@ -209,9 +213,11 @@
                     document.getElementById('pool-percent').textContent = poolPercent.toFixed(2) + '%';
                 }
 
+                // Block reward
+                if (info.block_reward) document.getElementById('block-reward').textContent = Utils.formatSALShort(info.block_reward);
+
                 // Mining stats
                 if (info.miners !== undefined) document.getElementById('active-miners').textContent = info.miners;
-                if (info.blocks_found !== undefined) document.getElementById('blocks-found').textContent = info.blocks_found;
                 if (info.last_block_found_time) document.getElementById('last-block').textContent = Utils.timeAgo(info.last_block_found_time);
 
                 // Window blocks (blocks + uncles)
@@ -228,7 +234,7 @@
             }
 
             const blocks = await API.getFoundBlocks(10);
-            renderFoundBlocks(blocks);
+            renderFoundBlocks(blocks, info?.block_reward);
 
             const shares = await API.getSideBlocks(15);
             renderRecentShares(shares);

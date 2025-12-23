@@ -12,6 +12,7 @@
         <nav style="margin-bottom: 2rem; text-align: center;">
             <a href="." class="nav-item">Home</a> |
             <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="shares.html" class="nav-item">Shares</a> |
             <a href="miners.html" class="nav-item">Miners</a> |
             <a href="calculator.html" class="nav-item">Calculator</a>
         </nav>
@@ -30,11 +31,11 @@
         <div id="miner-content" style="display: none;">
             <p class="mono" id="display-address" style="text-align: center; margin-bottom: 1rem;">--</p>
 
-            <!-- Miner Stats -->
-            <div class="stats-grid" style="margin-bottom: 2rem;">
+            <!-- Miner Stats Row 1 -->
+            <div class="stats-grid" style="margin-bottom: 1rem;">
                 <div class="stat-card">
-                    <h3>PPLNS Weight</h3>
-                    <div class="value" id="miner-weight">--</div>
+                    <h3>Hashrate (est)</h3>
+                    <div class="value" id="miner-hashrate">--</div>
                 </div>
                 <div class="stat-card">
                     <h3>Share %</h3>
@@ -45,8 +46,35 @@
                     <div class="value" id="miner-shares">--</div>
                 </div>
                 <div class="stat-card">
+                    <h3>Uncles in Window</h3>
+                    <div class="value" id="miner-uncles">--</div>
+                </div>
+            </div>
+
+            <!-- Miner Stats Row 2 -->
+            <div class="stats-grid" style="margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <h3>PPLNS Weight</h3>
+                    <div class="value" id="miner-weight">--</div>
+                </div>
+                <div class="stat-card">
                     <h3>Est. Reward/Block</h3>
                     <div class="value" id="miner-reward">--</div>
+                </div>
+            </div>
+
+            <!-- Position Visualization -->
+            <div class="info-card" style="margin-bottom: 2rem; font-family: monospace;">
+                <div style="margin-bottom: 0.5rem;">
+                    <span style="color: var(--color-dim);">Shares position:</span>
+                    <span id="share-position" class="mono" style="color: var(--color-accent);">[..............................]</span>
+                </div>
+                <div>
+                    <span style="color: var(--color-dim);">Uncles position:</span>
+                    <span id="uncle-position" class="mono" style="color: var(--color-warn);">[..............................]</span>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.8em; color: var(--color-dim);">
+                    Left = newest, Right = oldest in PPLNS window
                 </div>
             </div>
 
@@ -147,11 +175,24 @@
             // Update miner stats
             if (minerInfo && minerInfo.pplns) {
                 const pplns = minerInfo.pplns;
-                document.getElementById('miner-weight').textContent = pplns.weight ? Utils.formatDifficulty(parseFloat(pplns.weight)) : '0';
-                // API uses 'percentage' not 'percent'
+
+                // Hashrate
+                if (pplns.hashrate) {
+                    document.getElementById('miner-hashrate').textContent = Utils.formatHashrate(pplns.hashrate);
+                } else {
+                    document.getElementById('miner-hashrate').textContent = '0 H/s';
+                }
+
+                // Share percentage
                 const percent = pplns.percentage || pplns.percent || 0;
                 document.getElementById('miner-percent').textContent = percent ? percent.toFixed(4) + '%' : '0%';
-                document.getElementById('miner-shares').textContent = minerInfo.shares_count || '0';
+
+                // Shares and uncles in window (from PPLNS data)
+                document.getElementById('miner-shares').textContent = pplns.share_count || '0';
+                document.getElementById('miner-uncles').textContent = pplns.uncle_count || '0';
+
+                // PPLNS weight
+                document.getElementById('miner-weight').textContent = pplns.weight ? Utils.formatDifficulty(parseFloat(pplns.weight)) : '0';
 
                 // Use pre-calculated estimated_payout from API, or calculate from percent
                 if (pplns.estimated_payout) {
@@ -160,11 +201,19 @@
                     const estReward = poolInfo.block_reward * (percent / 100);
                     document.getElementById('miner-reward').textContent = Utils.formatSALShort(estReward);
                 }
+
+                // Position visualizations
+                document.getElementById('share-position').textContent = pplns.share_position || '[..............................]';
+                document.getElementById('uncle-position').textContent = pplns.uncle_position || '[..............................]';
             } else {
-                document.getElementById('miner-weight').textContent = '0';
+                document.getElementById('miner-hashrate').textContent = '0 H/s';
                 document.getElementById('miner-percent').textContent = '0%';
                 document.getElementById('miner-shares').textContent = '0';
+                document.getElementById('miner-uncles').textContent = '0';
+                document.getElementById('miner-weight').textContent = '0';
                 document.getElementById('miner-reward').textContent = '--';
+                document.getElementById('share-position').textContent = '[..............................]';
+                document.getElementById('uncle-position').textContent = '[..............................]';
             }
 
             // Render payouts
