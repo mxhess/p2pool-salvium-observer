@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"math/bits"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -259,17 +260,31 @@ func (d Difficulty) Mul64(v uint64) Difficulty {
 }
 
 // Div64 divides a difficulty by a uint64
+// Uses math/bits.Div64 for proper 128-bit / 64-bit division without overflow
 func (d Difficulty) Div64(v uint64) Difficulty {
 	if v == 0 {
 		return Difficulty{Lo: 0, Hi: 0}
 	}
-	// Use 128-bit division
-	hi := d.Hi / v
-	rem := d.Hi % v
-	lo := (rem<<32 | (d.Lo >> 32)) / v
-	rem = (rem<<32 | (d.Lo >> 32)) % v
-	lo = lo<<32 | ((rem<<32 | (d.Lo & 0xFFFFFFFF)) / v)
-	return Difficulty{Lo: lo, Hi: hi}
+
+	// If Hi >= v, we need to handle the high part first
+	var resultHi, resultLo uint64
+	var rem uint64
+
+	if d.Hi >= v {
+		// High part of result
+		resultHi = d.Hi / v
+		rem = d.Hi % v
+	} else {
+		resultHi = 0
+		rem = d.Hi
+	}
+
+	// Use bits.Div64 for proper 128-bit / 64-bit division
+	// bits.Div64(hi, lo, y) computes (hi*2^64 + lo) / y
+	// Requires: hi < y to avoid overflow
+	resultLo, _ = bits.Div64(rem, d.Lo, v)
+
+	return Difficulty{Lo: resultLo, Hi: resultHi}
 }
 
 // Div divides a difficulty by another difficulty (128-bit / 128-bit)
