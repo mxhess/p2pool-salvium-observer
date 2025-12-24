@@ -112,7 +112,7 @@
                 const reward = block.reward || blockReward;
                 const explorerUrl = hash !== '--' ? `https://explorer.salvium.io/block/${hash}` : '#';
                 html += `<tr id="block-${height}">
-                    <td><a href="https://explorer.salvium.io/block/${height}" target="_blank" rel="noopener">${height}</a></td>
+                    <td><a href="block.html?height=${height}">${height}</a></td>
                     <td class="mono"><a href="${explorerUrl}" target="_blank" rel="noopener">${hashShort}</a></td>
                     <td>${reward ? Utils.formatSALShort(reward) : '--'}</td>
                     <td>${block.difficulty ? Utils.formatDifficulty(parseFloat(block.difficulty)) : '--'}</td>

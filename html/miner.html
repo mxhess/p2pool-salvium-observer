@@ -136,9 +136,12 @@
 
             for (const payout of payouts) {
                 totalPaid += payout.amount || 0;
+                const blockLink = payout.block_height
+                    ? `<a href="block.html?height=${payout.block_height}">${payout.block_height}</a>`
+                    : '--';
                 html += `
                     <tr>
-                        <td data-label="Block">${payout.block_height || '--'}</td>
+                        <td data-label="Block">${blockLink}</td>
                         <td data-label="Amount">${payout.amount ? Utils.formatSALShort(payout.amount) : '--'}</td>
                         <td data-label="Share %">${payout.percentage ? payout.percentage.toFixed(4) + '%' : '--'}</td>
                         <td data-label="Time">${payout.timestamp ? Utils.timeAgo(payout.timestamp) : '--'}</td>

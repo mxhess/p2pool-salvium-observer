@@ -111,7 +111,15 @@
             // Populate fields
             document.getElementById('template-id').textContent = share.template_id || id;
             document.getElementById('side-height').textContent = share.side_height?.toLocaleString() || '--';
-            document.getElementById('main-height').textContent = share.main_height?.toLocaleString() || '--';
+            // Check if this share found a mainchain block
+            const mainHeightEl = document.getElementById('main-height');
+            const foundBlocks = await API.getFoundBlocks(100);
+            const foundBlock = foundBlocks?.find(b => b.height === share.main_height);
+            if (foundBlock) {
+                mainHeightEl.innerHTML = `<a href="block.html?height=${share.main_height}" style="color: var(--whisky-gold);">${share.main_height?.toLocaleString()} (Found!)</a>`;
+            } else {
+                mainHeightEl.textContent = share.main_height?.toLocaleString() || '--';
+            }
 
             const minerAddr = share.miner_address || '--';
             document.getElementById('miner-addr').textContent = minerAddr;

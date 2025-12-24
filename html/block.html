@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Block Details - P2Pool Salvium</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+    <div class="content center">
+        <nav style="margin-bottom: 2rem; text-align: center;">
+            <a href="/" class="nav-item">Home</a> |
+            <a href="." class="nav-item">Dashboard</a> |
+            <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="shares.html" class="nav-item">Shares</a> |
+            <a href="miners.html" class="nav-item">Miners</a> |
+            <a href="calculator.html" class="nav-item">Calculator</a>
+        </nav>
+
+        <h1 style="text-align: center; margin-bottom: 2rem;">Block Details</h1>
+
+        <div id="block-info" class="stats-grid" style="margin-bottom: 2rem; grid-template-columns: repeat(3, 1fr);">
+            <div class="loading">Loading...</div>
+        </div>
+
+        <h2 style="margin-bottom: 1rem;">Payouts</h2>
+        <div id="payouts-container">
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        async function load() {
+            const params = Utils.getUrlParams();
+            const height = params.height;
+
+            if (!height) {
+                document.getElementById('block-info').innerHTML = '<p>No block height specified. <a href="blocks.html">View all blocks</a></p>';
+                document.getElementById('payouts-container').innerHTML = '';
+                return;
+            }
+
+            // Update page title
+            document.title = `Block ${height} - P2Pool Salvium`;
+
+            const data = await API.getFoundBlockDetails(height);
+
+            if (!data || !data.block) {
+                document.getElementById('block-info').innerHTML = `<p>Block ${height} not found. <a href="blocks.html">View all blocks</a></p>`;
+                document.getElementById('payouts-container').innerHTML = '';
+                return;
+            }
+
+            const block = data.block;
+            const payouts = data.payouts || [];
+
+            // Calculate total reward from payouts
+            let totalReward = 0;
+            for (const p of payouts) {
+                totalReward += p.amount || 0;
+            }
+            // If no payouts, use block reward estimate
+            if (totalReward === 0 && block.reward) {
+                totalReward = block.reward;
+            }
+
+            // Block info
+            const hash = block.hash || '--';
+            const hashShort = hash.length > 16 ? hash.substring(0, 8) + '...' + hash.substring(hash.length - 8) : hash;
+            const effort = block.effort ? block.effort.toFixed(1) + '%' : '--';
+            const effortClass = block.effort ? Utils.effortClass(block.effort) : '';
+
+            document.getElementById('block-info').innerHTML = `
+                <div class="stat-card">
+                    <h3>Salvium Height</h3>
+                    <div class="value">
+                        <a href="https://explorer.salvium.io/block/${height}" target="_blank" rel="noopener">${height}</a>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <h3>Block Hash</h3>
+                    <div class="value mono" style="font-size: 0.9em;">
+                        <a href="https://explorer.salvium.io/block/${hash}" target="_blank" rel="noopener" title="${hash}">${hashShort}</a>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Reward</h3>
+                    <div class="value">${totalReward > 0 ? Utils.formatSAL(totalReward) : '--'}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Difficulty</h3>
+                    <div class="value">${block.difficulty ? Utils.formatDifficulty(parseFloat(block.difficulty)) : '--'}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Effort</h3>
+                    <div class="value ${effortClass}">${effort}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Found</h3>
+                    <div class="value">${block.timestamp ? Utils.formatDate(block.timestamp) : '--'}</div>
+                </div>
+            `;
+
+            // Payouts table
+            if (payouts.length === 0) {
+                document.getElementById('payouts-container').innerHTML = '<p>No payout data available for this block.</p>';
+                return;
+            }
+
+            // Calculate percentages
+            for (const p of payouts) {
+                if (totalReward > 0) {
+                    p.percentage = ((p.amount || 0) / totalReward) * 100;
+                } else {
+                    p.percentage = 0;
+                }
+            }
+
+            let html = '<table class="data-table"><thead><tr><th>#</th><th>Miner</th><th>Amount</th><th>Share</th></tr></thead><tbody>';
+            for (let i = 0; i < payouts.length; i++) {
+                const p = payouts[i];
+                const addr = Utils.truncateAddress(p.address || p.miner || '--');
+                const amount = p.amount ? Utils.formatSAL(p.amount) : '--';
+                const pct = p.percentage ? p.percentage.toFixed(2) + '%' : '--';
+
+                html += `<tr>
+                    <td>${i + 1}</td>
+                    <td class="mono">${addr}</td>
+                    <td>${amount}</td>
+                    <td>${pct}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+
+            // Add summary
+            html += `<p style="margin-top: 1rem; color: var(--wheat-text);">
+                ${payouts.length} miner${payouts.length !== 1 ? 's' : ''} received payouts from this block
+            </p>`;
+
+            document.getElementById('payouts-container').innerHTML = html;
+        }
+
+        load();
+    </script>
+</body>
+</html>

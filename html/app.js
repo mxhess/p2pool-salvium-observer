@@ -162,6 +162,11 @@ const API = {
     // Pool stats
     async getPoolStats() {
         return this.get('/pool/stats');
+    },
+
+    // Found block details (with PPLNS snapshot and payouts)
+    async getFoundBlockDetails(height) {
+        return this.get(`/found_block/${height}`);
     }
 };
 

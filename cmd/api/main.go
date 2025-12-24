@@ -150,6 +150,9 @@ func (a *API) registerRoutes() {
 
 	// Effort stats
 	a.router.HandleFunc("/api/pool/effort", a.handleEffort).Methods("GET")
+
+	// Found block details (with PPLNS snapshot and payouts)
+	a.router.HandleFunc("/api/found_block/{height}", a.handleFoundBlockDetails).Methods("GET")
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
@@ -774,3 +777,138 @@ func (a *API) handlePayouts(w http.ResponseWriter, r *http.Request) {
 	w.Write(sanitizeAddresses([]byte(data)))
 }
 
+// GET /api/found_block/{height} - Found block details with PPLNS snapshot (cached 60s)
+func (a *API) handleFoundBlockDetails(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	heightStr := vars["height"]
+
+	height, err := strconv.ParseUint(heightStr, 10, 64)
+	if err != nil {
+		a.writeError(w, http.StatusBadRequest, "Invalid block height")
+		return
+	}
+
+	cacheKey := fmt.Sprintf("api:found_block:%d", height)
+
+	if data, ok := cacheGet(cacheKey); ok {
+		a.writeSanitizedCache(w, data)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Get all found blocks
+	blocksData, err := a.redis.Get(ctx, "cache:found_blocks").Result()
+	if err != nil {
+		a.writeError(w, http.StatusNotFound, "Found blocks not available")
+		return
+	}
+
+	var blocks []map[string]interface{}
+	if err := json.Unmarshal([]byte(blocksData), &blocks); err != nil {
+		a.writeError(w, http.StatusInternalServerError, "Invalid found blocks data")
+		return
+	}
+
+	// Find the specific block
+	var foundBlock map[string]interface{}
+	var blockIndex int = -1
+	for i, block := range blocks {
+		if h, ok := block["height"].(float64); ok && uint64(h) == height {
+			foundBlock = block
+			blockIndex = i
+			break
+		}
+	}
+
+	if foundBlock == nil {
+		a.writeError(w, http.StatusNotFound, "Block not found")
+		return
+	}
+
+	// Calculate effort for this block
+	if blockIndex > 0 {
+		prevBlock := blocks[blockIndex-1]
+		prevHashes, _ := strconv.ParseFloat(fmt.Sprintf("%v", prevBlock["total_hashes"]), 64)
+		currHashes, _ := strconv.ParseFloat(fmt.Sprintf("%v", foundBlock["total_hashes"]), 64)
+		diff, _ := strconv.ParseFloat(fmt.Sprintf("%v", foundBlock["difficulty"]), 64)
+		if diff > 0 {
+			roundHashes := currHashes - prevHashes
+			effort := (roundHashes / diff) * 100
+			foundBlock["effort"] = effort
+		}
+	}
+
+	// Build response
+	result := map[string]interface{}{
+		"block": foundBlock,
+	}
+
+	// Get PPLNS snapshot for this block
+	snapshotsData, err := a.redis.Get(ctx, "cache:pplns_snapshots").Result()
+	if err == nil {
+		var snapshots map[string][]string
+		if json.Unmarshal([]byte(snapshotsData), &snapshots) == nil {
+			if minerAddrs, ok := snapshots[heightStr]; ok {
+				result["pplns_snapshot"] = minerAddrs
+			}
+		}
+	}
+
+	// Get payouts for this block from miner payouts
+	// Build a map of payouts for this specific block height
+	payouts := make([]map[string]interface{}, 0)
+
+	// Get all miner payout keys
+	keys, err := a.redis.Keys(ctx, "miner:*:payouts").Result()
+	if err == nil {
+		for _, key := range keys {
+			// Extract miner address from key (miner:{addr}:payouts)
+			parts := strings.Split(key, ":")
+			if len(parts) < 2 {
+				continue
+			}
+			minerAddr := parts[1]
+
+			data, err := a.redis.Get(ctx, key).Result()
+			if err != nil {
+				continue
+			}
+			var minerPayouts []map[string]interface{}
+			if json.Unmarshal([]byte(data), &minerPayouts) != nil {
+				continue
+			}
+			for _, payout := range minerPayouts {
+				if h, ok := payout["block_height"].(float64); ok && uint64(h) == height {
+					// Add miner address to the payout object
+					payout["address"] = minerAddr
+					payouts = append(payouts, payout)
+					break // Only one payout per miner per block
+				}
+			}
+		}
+	}
+
+	// Sort payouts by amount descending
+	if len(payouts) > 0 {
+		// Simple bubble sort for small arrays
+		for i := 0; i < len(payouts); i++ {
+			for j := i + 1; j < len(payouts); j++ {
+				amtI, _ := payouts[i]["amount"].(float64)
+				amtJ, _ := payouts[j]["amount"].(float64)
+				if amtJ > amtI {
+					payouts[i], payouts[j] = payouts[j], payouts[i]
+				}
+			}
+		}
+		result["payouts"] = payouts
+	}
+
+	// Cache the response
+	if jsonData, err := json.Marshal(result); err == nil {
+		cacheSet(cacheKey, jsonData, CacheTTLMedium) // 60s cache
+	}
+
+	w.Header().Set("X-Cache", "MISS")
+	a.writeJSON(w, result)
+}
