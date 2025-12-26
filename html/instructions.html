@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started - P2Pool Salvium</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .instructions-section {
+            margin-bottom: 2.5rem;
+        }
+        .instructions-section h2 {
+            color: var(--whisky-gold);
+            border-bottom: 1px solid var(--whisky-copper);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .instructions-section h3 {
+            color: var(--whisky-amber);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .instructions-section p {
+            line-height: 1.7;
+            margin-bottom: 1rem;
+        }
+        .instructions-section ul, .instructions-section ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+            line-height: 1.8;
+        }
+        .instructions-section li {
+            margin-bottom: 0.5rem;
+        }
+        .code-block {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--whisky-copper);
+            border-radius: 4px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 14px;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid var(--whisky-copper);
+            padding: 0.75rem;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: rgba(210, 105, 30, 0.2);
+            color: var(--whisky-gold);
+        }
+        .comparison-table tr:nth-child(even) {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        .highlight-row {
+            background: rgba(210, 105, 30, 0.15) !important;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .feature-item {
+            background: rgba(210, 105, 30, 0.1);
+            border-left: 3px solid var(--whisky-gold);
+            padding: 1rem;
+            border-radius: 0 4px 4px 0;
+        }
+        .feature-item strong {
+            color: var(--whisky-amber);
+        }
+        .warning-box {
+            background: rgba(255, 165, 0, 0.1);
+            border: 1px solid var(--whisky-amber);
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .warning-box strong {
+            color: var(--whisky-amber);
+        }
+        .btn-download {
+            display: inline-block;
+            background: var(--whisky-gold);
+            color: #1a1a1a;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            transition: background 0.2s;
+        }
+        .btn-download:hover {
+            background: var(--whisky-amber);
+        }
+        .tab-container {
+            margin: 1rem 0;
+        }
+        .tab-buttons {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid var(--whisky-copper);
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--whisky-amber);
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover {
+            color: var(--whisky-gold);
+        }
+        .tab-btn.active {
+            color: var(--whisky-gold);
+            border-bottom-color: var(--whisky-gold);
+            background: rgba(210, 105, 30, 0.1);
+        }
+        .tab-content {
+            display: none;
+            padding: 1rem 0;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="dark">
+    <div class="content center">
+        <nav style="margin-bottom: 2rem; text-align: center;">
+            <a href="/" class="nav-item">Home</a> |
+            <a href="." class="nav-item">Stats</a> |
+            <a href="blocks.html" class="nav-item">Blocks</a> |
+            <a href="shares.html" class="nav-item">Shares</a> |
+            <a href="miners.html" class="nav-item">Miners</a> |
+            <a href="calculator.html" class="nav-item">Calculator</a> |
+            <a href="instructions.html" class="nav-item">Get Started</a>
+        </nav>
+
+        <h1 style="text-align: center; margin-bottom: 0.5rem;">Getting Started with P2Pool Salvium</h1>
+        <p style="text-align: center; margin-bottom: 2rem; color: #8B7653;">
+            Decentralized mining for Salvium - 0% fees, trustless payouts
+        </p>
+
+        <!-- Quick Links -->
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <a href="https://github.com/mxhess/p2pool-salvium/releases/latest" target="_blank" rel="noopener" class="btn-download">Download P2Pool</a>
+            <a href="https://salvium.io/download.html" target="_blank" rel="noopener" class="btn-download">Download Salvium</a>
+            <a href="https://github.com/xmrig/xmrig/releases/latest" target="_blank" rel="noopener" class="btn-download">Download XMRig</a>
+        </div>
+
+        <!-- What is P2Pool -->
+        <div class="instructions-section">
+            <h2>What is P2Pool?</h2>
+            <p>
+                P2Pool is a decentralized mining pool that operates without a central server. Instead of trusting a pool operator with your hashrate and funds, P2Pool uses its own sidechain to coordinate miners and distribute rewards directly to your wallet.
+            </p>
+            <p>
+                Originally forked from <a href="https://github.com/SChernykh/p2pool" target="_blank" rel="noopener">SChernykh's P2Pool</a> for Monero, this implementation has been extensively rewritten and improved for Salvium.
+            </p>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="instructions-section">
+            <h2>Why P2Pool?</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Pool Type</th>
+                        <th>Payouts</th>
+                        <th>Fee</th>
+                        <th>Min. Payout</th>
+                        <th>Centralized?</th>
+                        <th>Control</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Centralized Pool</td>
+                        <td>Regular</td>
+                        <td>0-3%</td>
+                        <td>0.001-0.01 SAL</td>
+                        <td>Yes</td>
+                        <td>Pool admin controls funds</td>
+                    </tr>
+                    <tr>
+                        <td>Solo Mining</td>
+                        <td>Rare</td>
+                        <td>0%</td>
+                        <td>Full block reward</td>
+                        <td>No</td>
+                        <td>100% your control</td>
+                    </tr>
+                    <tr class="highlight-row">
+                        <td><strong>P2Pool</strong></td>
+                        <td>Regular</td>
+                        <td><strong>0%</strong></td>
+                        <td>~0.04 SAL</td>
+                        <td>No</td>
+                        <td>100% your control</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Features -->
+        <div class="instructions-section">
+            <h2>Features</h2>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <strong>Decentralized</strong><br>
+                    No central server that can be shutdown or blocked. No pool admin to go rogue.
+                </div>
+                <div class="feature-item">
+                    <strong>0% Fee</strong><br>
+                    All rewards go directly to miners. No pool fees, no payout fees.
+                </div>
+                <div class="feature-item">
+                    <strong>Trustless</strong><br>
+                    No pool wallet. Funds are never in custody. Blocks pay directly to miners.
+                </div>
+                <div class="feature-item">
+                    <strong>PPLNS Payouts</strong><br>
+                    Fair reward distribution based on shares in a 6-hour sliding window.
+                </div>
+                <div class="feature-item">
+                    <strong>Uncle Blocks</strong><br>
+                    Orphaned shares are still counted. All your work is accounted for.
+                </div>
+                <div class="feature-item">
+                    <strong>Fast Blocks</strong><br>
+                    10-second sidechain block time for frequent share submissions.
+                </div>
+            </div>
+        </div>
+
+        <!-- How Payouts Work -->
+        <div class="instructions-section">
+            <h2>How Payouts Work</h2>
+            <p>
+                When you mine on P2Pool, you submit shares to the sidechain. Each share stays in the <a href="https://en.wikipedia.org/wiki/Mining_pool#Pay-per-last-N-shares" target="_blank" rel="noopener">PPLNS</a> window for up to 2160 blocks (~6 hours).
+            </p>
+            <p>
+                When P2Pool finds a Salvium mainchain block, the reward is split proportionally among all miners with shares in the PPLNS window. Your payout is based on the total difficulty of your shares relative to the window's total difficulty.
+            </p>
+            <div class="warning-box">
+                <strong>Note:</strong> If your shares exit the PPLNS window before a block is found, they won't receive a payout. However, over time this averages out - some shares may receive multiple payouts when blocks are found quickly.
+            </div>
+        </div>
+
+        <!-- Requirements -->
+        <div class="instructions-section">
+            <h2>Requirements</h2>
+            <ul>
+                <li><strong>Salvium Node:</strong> A fully synced salviumd v1.0.7 or newer (<a href="https://salvium.io/download.html" target="_blank" rel="noopener">download</a>)</li>
+                <li><strong>P2Pool:</strong> Latest version from <a href="https://github.com/mxhess/p2pool-salvium/releases/latest" target="_blank" rel="noopener">GitHub releases</a></li>
+                <li><strong>Mining Software:</strong> XMRig or compatible RandomX miner (<a href="https://github.com/xmrig/xmrig/releases/latest" target="_blank" rel="noopener">download</a>)</li>
+                <li><strong>Salvium Wallet:</strong> A wallet address starting with SC1 (create a new one - addresses are public on P2Pool)</li>
+            </ul>
+        </div>
+
+        <!-- Mining Instructions -->
+        <div class="instructions-section">
+            <h2>Mining Instructions</h2>
+
+            <div class="tab-container">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="showTab('linux')">Linux</button>
+                    <button class="tab-btn" onclick="showTab('windows')">Windows</button>
+                </div>
+
+                <!-- Linux Tab -->
+                <div id="linux" class="tab-content active">
+                    <h3>1. Download Software</h3>
+                    <p>Download the latest releases:</p>
+                    <ul>
+                        <li><a href="https://github.com/mxhess/p2pool-salvium/releases/latest" target="_blank" rel="noopener">P2Pool Salvium</a></li>
+                        <li><a href="https://salvium.io/download.html" target="_blank" rel="noopener">Salvium (salviumd)</a></li>
+                        <li><a href="https://github.com/xmrig/xmrig/releases/latest" target="_blank" rel="noopener">XMRig</a> (linux-static-x64)</li>
+                    </ul>
+
+                    <h3>2. Prepare Huge Pages</h3>
+                    <div class="code-block">sudo sysctl vm.nr_hugepages=3072</div>
+
+                    <h3>3. Open Firewall Ports</h3>
+                    <p>Ensure ports 19080 (Salvium p2p) and 38889 (P2Pool p2p) are open for better connectivity.</p>
+
+                    <h3>4. Start Salvium Node</h3>
+                    <div class="code-block">./salviumd --zmq-pub tcp://127.0.0.1:19083 --out-peers 32 --in-peers 64 --enforce-dns-checkpointing --enable-dns-blocklist</div>
+                    <p>Wait for full sync before continuing.</p>
+
+                    <h3>5. Start P2Pool</h3>
+                    <div class="code-block">./p2pool-salvium --host 127.0.0.1 --wallet YOUR_WALLET_ADDRESS</div>
+                    <p>Wait for P2Pool to sync (5-10 minutes).</p>
+
+                    <h3>6. Start XMRig</h3>
+                    <div class="code-block">./xmrig -o 127.0.0.1:3333</div>
+                    <p>You should now be mining! Check this observer to see your shares.</p>
+
+                    <div class="warning-box">
+                        <strong>Note:</strong> Don't set a wallet address in XMRig - it uses the address from P2Pool. To set custom difficulty: <code>./xmrig -u x+10000 -o 127.0.0.1:3333</code>
+                    </div>
+                </div>
+
+                <!-- Windows Tab -->
+                <div id="windows" class="tab-content">
+                    <h3>1. Download Software</h3>
+                    <p>Download the latest releases:</p>
+                    <ul>
+                        <li><a href="https://github.com/mxhess/p2pool-salvium/releases/latest" target="_blank" rel="noopener">P2Pool Salvium</a></li>
+                        <li><a href="https://salvium.io/download.html" target="_blank" rel="noopener">Salvium (salviumd)</a></li>
+                        <li><a href="https://github.com/xmrig/xmrig/releases/latest" target="_blank" rel="noopener">XMRig</a></li>
+                    </ul>
+
+                    <h3>2. Extract Files</h3>
+                    <p>Extract P2Pool and XMRig to a folder (e.g., <code>C:\bin\p2pool</code>). Create a "Salvium" subfolder and extract Salvium binaries there.</p>
+
+                    <h3>3. Enable Huge Pages</h3>
+                    <p>Run XMRig once as Administrator (right-click, "Run as Administrator") to enable huge pages.</p>
+
+                    <h3>4. Unblock Downloaded Files</h3>
+                    <p>Windows SmartScreen may block the executables. Right-click each .exe, select Properties, and check "Unblock" if present.</p>
+
+                    <h3>5. Start Salvium Node</h3>
+                    <p>Open Command Prompt and run:</p>
+                    <div class="code-block">.\Salvium\salviumd.exe --zmq-pub tcp://127.0.0.1:19083 --out-peers 32 --in-peers 64 --enforce-dns-checkpointing --enable-dns-blocklist</div>
+                    <p>Wait for full sync before continuing.</p>
+
+                    <h3>6. Start P2Pool</h3>
+                    <div class="code-block">.\p2pool-salvium.exe --host 127.0.0.1 --wallet YOUR_WALLET_ADDRESS</div>
+                    <p>Wait for P2Pool to sync (5-10 minutes).</p>
+
+                    <h3>7. Start XMRig</h3>
+                    <div class="code-block">.\xmrig.exe -o 127.0.0.1:3333</div>
+                    <p>You should now be mining!</p>
+
+                    <div class="warning-box">
+                        <strong>Tip:</strong> Create a batch file to start everything automatically. See the <a href="https://github.com/mxhess/p2pool-salvium#windows" target="_blank" rel="noopener">full instructions</a> on GitHub.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- P2Pool Mini & Nano -->
+        <div class="instructions-section">
+            <h2>P2Pool Mini & Nano</h2>
+            <div class="warning-box">
+                <strong>Coming Soon:</strong> The P2Pool Mini and Nano sidechains are not yet operating for Salvium. These lower-difficulty sidechains will be launched once there is sufficient hashrate and demand. For now, please use the main P2Pool sidechain.
+            </div>
+            <p>
+                When available, miners with lower hashrate will be able to use these sidechains to find shares more frequently:
+            </p>
+            <ul>
+                <li><strong>Mini:</strong> Lower difficulty for smaller miners. Use <code>--mini</code> flag (port 38888)</li>
+                <li><strong>Nano:</strong> Even lower difficulty for very small miners. Use <code>--nano</code> flag</li>
+            </ul>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div class="instructions-section">
+            <h2>Troubleshooting</h2>
+            <h3>Check P2Pool Logs</h3>
+            <div class="code-block">grep -E 'WARNING|ERROR' p2pool.log</div>
+
+            <h3>Common Issues</h3>
+            <ul>
+                <li><strong>No shares found:</strong> Wait for salviumd and P2Pool to fully sync. Check that ports are open.</li>
+                <li><strong>Connection refused:</strong> Ensure salviumd is running with <code>--zmq-pub</code> option.</li>
+                <li><strong>Low hashrate:</strong> Make sure huge pages are enabled. Check CPU temperature.</li>
+            </ul>
+        </div>
+
+        <!-- Links -->
+        <div class="instructions-section">
+            <h2>Resources</h2>
+            <ul>
+                <li><a href="https://github.com/mxhess/p2pool-salvium" target="_blank" rel="noopener">P2Pool Salvium on GitHub</a> - Source code, issues, full documentation</li>
+                <li><a href="https://github.com/mxhess/p2pool-salvium/releases/latest" target="_blank" rel="noopener">Latest Releases</a> - Download pre-built binaries</li>
+                <li><a href="https://salvium.io" target="_blank" rel="noopener">Salvium Official Website</a></li>
+                <li><a href="https://discord.com/invite/P3rrAjkyYs" target="_blank" rel="noopener">Salvium Discord</a> - Community support</li>
+            </ul>
+        </div>
+
+        <!-- Donations -->
+        <div class="instructions-section">
+            <h2>Support Development</h2>
+            <p>If you'd like to support P2Pool Salvium development:</p>
+            <div class="code-block">SC1siDDg9o3hBrSHJPBaGPXmJvPcUku8nD84cCT2PNUn61PxtdtBynHBiCaUf7BbNJctmU8LKabiHNE8x5ReYg6RYEhSqRFcL2W</div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
