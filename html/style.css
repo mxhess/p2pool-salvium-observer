@@ -631,7 +631,7 @@ body.dark .address-section {
     width: 100%;
     max-width: 900px;
     padding: 12px 16px;
-    font-size: 16px;
+    font-size: 14px;
     background-color: var(--aged-paper);
     border: 1px solid rgba(210, 105, 30, 0.7);
     border-radius: 5px;
