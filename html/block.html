@@ -11,7 +11,7 @@
     <div class="content center">
         <nav style="margin-bottom: 2rem; text-align: center;">
             <a href="/" class="nav-item">Home</a> |
-            <a href="." class="nav-item">Dashboard</a> |
+            <a href="." class="nav-item">Stats</a> |
             <a href="blocks.html" class="nav-item">Blocks</a> |
             <a href="shares.html" class="nav-item">Shares</a> |
             <a href="miners.html" class="nav-item">Miners</a> |
@@ -100,6 +100,10 @@
                 <div class="stat-card">
                     <h3>Found</h3>
                     <div class="value">${block.timestamp ? Utils.formatDate(block.timestamp) : '--'}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Finder</h3>
+                    <div class="value mono" style="font-size: 0.9em;">${block.finder || '--'}</div>
                 </div>
             `;
 

@@ -11,7 +11,7 @@
     <div class="content center">
         <nav style="margin-bottom: 2rem; text-align: center;">
             <a href="/" class="nav-item">Home</a> |
-            <a href="." class="nav-item">Dashboard</a> |
+            <a href="." class="nav-item">Stats</a> |
             <a href="blocks.html" class="nav-item">Blocks</a> |
             <a href="shares.html" class="nav-item">Shares</a> |
             <a href="miners.html" class="nav-item">Miners</a> |
@@ -103,19 +103,16 @@
                 document.getElementById('last-block').textContent = Utils.timeAgo(blocks[0].timestamp);
             }
 
-            let html = '<table class="data-table"><thead><tr><th>Salvium Height</th><th>Block Hash</th><th>Reward</th><th>Difficulty</th><th>Effort</th><th>Age</th></tr></thead><tbody>';
+            let html = '<table class="data-table"><thead><tr><th>Salvium Height</th><th>Finder</th><th>Reward</th><th>Effort</th><th>Age</th></tr></thead><tbody>';
             for (const block of blocks) {
                 const height = block.height || block.main_height || '--';
-                const hash = block.hash || '--';
-                const hashShort = hash.length > 16 ? hash.substring(0, 8) + '...' + hash.substring(hash.length - 8) : hash;
                 const effort = block.effort !== null ? block.effort.toFixed(1) + '%' : '--';
                 const reward = block.reward || blockReward;
-                const explorerUrl = hash !== '--' ? `https://explorer.salvium.io/block/${hash}` : '#';
+                const finder = block.finder || '--';
                 html += `<tr id="block-${height}">
                     <td><a href="block.html?height=${height}">${height}</a></td>
-                    <td class="mono"><a href="${explorerUrl}" target="_blank" rel="noopener">${hashShort}</a></td>
+                    <td class="mono">${finder}</td>
                     <td>${reward ? Utils.formatSALShort(reward) : '--'}</td>
-                    <td>${block.difficulty ? Utils.formatDifficulty(parseFloat(block.difficulty)) : '--'}</td>
                     <td>${effort}</td>
                     <td>${block.timestamp ? Utils.timeAgo(block.timestamp) : '--'}</td>
                 </tr>`;

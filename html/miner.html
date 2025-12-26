@@ -11,7 +11,7 @@
     <div class="content center">
         <nav style="margin-bottom: 2rem; text-align: center;">
             <a href="/" class="nav-item">Home</a> |
-            <a href="." class="nav-item">Dashboard</a> |
+            <a href="." class="nav-item">Stats</a> |
             <a href="blocks.html" class="nav-item">Blocks</a> |
             <a href="shares.html" class="nav-item">Shares</a> |
             <a href="miners.html" class="nav-item">Miners</a> |
@@ -226,10 +226,20 @@
 
         // Initial load
         async function init() {
-            // Check for address in URL
+            // Check for address in URL first, then sessionStorage
             const params = Utils.getUrlParams();
             if (params.address) {
                 currentAddress = params.address;
+                // Save to sessionStorage and redirect to clean URL
+                sessionStorage.setItem('minerAddress', currentAddress);
+                window.location.replace('miner.html');
+                return;
+            }
+
+            // Check sessionStorage
+            const savedAddress = sessionStorage.getItem('minerAddress');
+            if (savedAddress) {
+                currentAddress = savedAddress;
                 document.getElementById('miner-address').value = currentAddress;
                 document.getElementById('no-address-message').style.display = 'none';
                 document.getElementById('miner-content').style.display = 'block';

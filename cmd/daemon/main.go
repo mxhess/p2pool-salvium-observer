@@ -81,6 +81,7 @@ type FoundBlock struct {
 	Difficulty  string `json:"difficulty"`
 	TotalHashes string `json:"total_hashes"` // Cumulative hashes at time of find
 	Reward      uint64 `json:"reward"`       // Block reward in atomic units (fetched from chain)
+	Finder      string `json:"finder"`       // Miner address who found the block (truncated)
 }
 
 // EffortStats represents current pool effort statistics
@@ -136,6 +137,7 @@ type Daemon struct {
 	processedPayouts  map[uint64]bool          // Block heights we've calculated payouts for
 	minerPayouts      map[string][]Payout      // Address -> list of payouts
 	pplnsSnapshots    map[uint64][]string      // Block height -> ordered miner addresses at discovery
+	blockFinders      map[uint64]string        // Block height -> finder address (persisted)
 }
 
 func main() {
@@ -215,6 +217,7 @@ func main() {
 		processedPayouts: make(map[uint64]bool),
 		minerPayouts:     make(map[string][]Payout),
 		pplnsSnapshots:   make(map[uint64][]string),
+		blockFinders:     make(map[uint64]string),
 	}
 
 	// Handle rebuild-payouts mode
@@ -238,7 +241,8 @@ func main() {
 		}
 		daemon.mainchainDiff = diff
 
-		// Load found blocks
+		// Load found blocks and finders
+		daemon.loadBlockFinders()
 		daemon.loadFoundBlocks()
 		p2pool.Logf("DAEMON", "Loaded %d found blocks", len(daemon.foundBlocks))
 
@@ -332,6 +336,7 @@ func (d *Daemon) syncCycle() {
 	d.storeHashrate(pplns)
 
 	// 7. Load and process found blocks
+	d.loadBlockFinders()
 	d.loadFoundBlocks()
 	d.storeEffort(tip)
 
@@ -651,6 +656,21 @@ func (d *Daemon) loadFoundBlocks() {
 				continue
 			}
 		}
+
+		// Look up finder - first check cache, then sidechain shares
+		if cachedFinder, ok := d.blockFinders[fb.Height]; ok {
+			fb.Finder = cachedFinder
+		} else {
+			// Look up from sidechain shares
+			for _, share := range d.shares {
+				if share.MainchainHeight == fb.Height {
+					fb.Finder = p2pool.TruncateAddress(share.MinerWallet.ToBase58())
+					d.blockFinders[fb.Height] = fb.Finder // Cache it
+					break
+				}
+			}
+		}
+
 		d.foundBlocks = append(d.foundBlocks, fb)
 	}
 
@@ -664,6 +684,10 @@ func (d *Daemon) loadFoundBlocks() {
 		lastFound := d.foundBlocks[len(d.foundBlocks)-1]
 		d.redis.Set(ctx, "stats:pool:last_found_time", lastFound.Timestamp, 0)
 		d.redis.Set(ctx, "stats:pool:last_found_height", lastFound.Height, 0)
+
+		// Persist block finders to Redis
+		findersJSON, _ := json.Marshal(d.blockFinders)
+		d.redis.Set(ctx, "cache:block_finders", string(findersJSON), 0)
 	}
 
 	p2pool.Logf("FOUND", "Loaded %d found blocks", len(d.foundBlocks))
@@ -969,6 +993,21 @@ func (d *Daemon) loadPPLNSSnapshots() {
 	json.Unmarshal([]byte(data), &d.pplnsSnapshots)
 	if len(d.pplnsSnapshots) > 0 {
 		p2pool.Logf("REDIS", "Loaded %d PPLNS snapshots", len(d.pplnsSnapshots))
+	}
+}
+
+// loadBlockFinders loads block finder addresses from Redis
+func (d *Daemon) loadBlockFinders() {
+	ctx := d.ctx
+
+	data, err := d.redis.Get(ctx, "cache:block_finders").Result()
+	if err != nil {
+		return
+	}
+
+	json.Unmarshal([]byte(data), &d.blockFinders)
+	if len(d.blockFinders) > 0 {
+		p2pool.Logf("REDIS", "Loaded %d block finders", len(d.blockFinders))
 	}
 }
 
