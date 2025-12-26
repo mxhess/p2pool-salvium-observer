@@ -114,6 +114,26 @@ const API = {
         }
     },
 
+    // POST request with JSON body (for miner endpoints - avoids ad blocker issues)
+    async post(endpoint, body) {
+        try {
+            const response = await fetch(API_BASE + endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error(`API error (${endpoint}):`, error);
+            return null;
+        }
+    },
+
     // Pool info
     async getPoolInfo() {
         return this.get('/pool_info');
@@ -134,19 +154,19 @@ const API = {
         return this.get('/pplns');
     },
 
-    // Miner info
+    // Miner info (POST with generic endpoint name to avoid ad blocker issues)
     async getMinerInfo(address) {
-        return this.get(`/miner_info/${encodeURIComponent(address)}`);
+        return this.post('/lookup/info', { address: address });
     },
 
-    // Miner shares
+    // Miner shares (POST with generic endpoint name)
     async getMinerShares(address) {
-        return this.get(`/miner/${encodeURIComponent(address)}/shares`);
+        return this.post('/lookup/shares', { address: address });
     },
 
-    // Miner payouts
+    // Miner payouts (POST with generic endpoint name)
     async getMinerPayouts(address) {
-        return this.get(`/payouts/${encodeURIComponent(address)}`);
+        return this.post('/lookup/history', { address: address });
     },
 
     // Block by ID

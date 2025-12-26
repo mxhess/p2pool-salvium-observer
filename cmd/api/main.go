@@ -130,9 +130,14 @@ func (a *API) registerRoutes() {
 	a.router.HandleFunc("/api/pplns", a.handlePPLNS).Methods("GET")
 	a.router.HandleFunc("/api/side_blocks_in_window", a.handlePPLNS).Methods("GET") // Alias
 
-	// Miner info
+	// Miner info (GET with address in path - may be blocked by ad blockers)
 	a.router.HandleFunc("/api/miner_info/{miner}", a.handleMinerInfo).Methods("GET")
 	a.router.HandleFunc("/api/miner/{miner}/shares", a.handleMinerShares).Methods("GET")
+
+	// Miner info (POST with address in body - ad blocker safe, generic names)
+	a.router.HandleFunc("/api/lookup/info", a.handleMinerInfoPOST).Methods("POST")
+	a.router.HandleFunc("/api/lookup/shares", a.handleMinerSharesPOST).Methods("POST")
+	a.router.HandleFunc("/api/lookup/history", a.handlePayoutsPOST).Methods("POST")
 
 	// Share/block lookups
 	a.router.HandleFunc("/api/share/{id}", a.handleShare).Methods("GET")
@@ -158,7 +163,7 @@ func (a *API) registerRoutes() {
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -546,6 +551,161 @@ func (a *API) handleMinerShares(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("X-Cache", "MISS")
 	a.writeJSON(w, shares)
+}
+
+// MinerRequest is the JSON body for POST miner endpoints
+type MinerRequest struct {
+	Address string `json:"address"`
+}
+
+// POST /api/miner_info - Miner info with address in body (ad blocker safe)
+func (a *API) handleMinerInfoPOST(w http.ResponseWriter, r *http.Request) {
+	var req MinerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		a.writeError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	if req.Address == "" {
+		a.writeError(w, http.StatusBadRequest, "Address required")
+		return
+	}
+
+	// Reuse the same logic as the GET handler
+	minerAddr := req.Address
+	cacheKey := "api:miner_info:" + minerAddr
+
+	if data, ok := cacheGet(cacheKey); ok {
+		a.writeSanitizedCache(w, data)
+		return
+	}
+
+	ctx := r.Context()
+
+	result := make(map[string]interface{})
+	result["address"] = p2pool.TruncateAddress(minerAddr)
+
+	// Get miner's PPLNS data
+	key := fmt.Sprintf("cache:pplns:miner:%s", minerAddr)
+	if data, err := a.redis.Get(ctx, key).Result(); err == nil {
+		var minerData map[string]interface{}
+		if json.Unmarshal([]byte(data), &minerData) == nil {
+			result["pplns"] = minerData
+		}
+	}
+
+	// Get miner's shares
+	sharesKey := fmt.Sprintf("miner:%s:shares", minerAddr)
+	if data, err := a.redis.Get(ctx, sharesKey).Result(); err == nil {
+		var shares []string
+		if json.Unmarshal([]byte(data), &shares) == nil {
+			result["shares_count"] = len(shares)
+			result["recent_shares"] = shares
+		}
+	}
+
+	// Get alias if set
+	aliasKey := fmt.Sprintf("miner:%s:alias", minerAddr)
+	if alias, err := a.redis.Get(ctx, aliasKey).Result(); err == nil {
+		result["alias"] = alias
+	}
+
+	if jsonData, err := json.Marshal(result); err == nil {
+		cacheSet(cacheKey, jsonData, CacheTTLShort)
+	}
+
+	w.Header().Set("X-Cache", "MISS")
+	a.writeJSON(w, result)
+}
+
+// POST /api/miner_shares - Miner shares with address in body (ad blocker safe)
+func (a *API) handleMinerSharesPOST(w http.ResponseWriter, r *http.Request) {
+	var req MinerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		a.writeError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	if req.Address == "" {
+		a.writeError(w, http.StatusBadRequest, "Address required")
+		return
+	}
+
+	minerAddr := req.Address
+	cacheKey := "api:miner_shares:" + minerAddr
+
+	if data, ok := cacheGet(cacheKey); ok {
+		a.writeSanitizedCache(w, data)
+		return
+	}
+
+	ctx := r.Context()
+
+	key := fmt.Sprintf("miner:%s:shares", minerAddr)
+	data, err := a.redis.Get(ctx, key).Result()
+	if err != nil {
+		a.writeJSON(w, []string{})
+		return
+	}
+
+	var shares []string
+	if err := json.Unmarshal([]byte(data), &shares); err != nil {
+		a.writeError(w, http.StatusInternalServerError, "Invalid shares data")
+		return
+	}
+
+	cacheSet(cacheKey, []byte(data), CacheTTLShort)
+
+	w.Header().Set("X-Cache", "MISS")
+	a.writeJSON(w, shares)
+}
+
+// POST /api/miner_payouts - Miner payouts with address in body (ad blocker safe)
+func (a *API) handlePayoutsPOST(w http.ResponseWriter, r *http.Request) {
+	var req MinerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		a.writeError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	if req.Address == "" {
+		a.writeError(w, http.StatusBadRequest, "Address required")
+		return
+	}
+
+	miner := req.Address
+	cacheKey := "api:payouts:" + miner
+
+	if data, ok := cacheGet(cacheKey); ok {
+		a.writeSanitizedCache(w, data)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Try multiple key formats for backwards compatibility
+	keysToTry := []string{
+		fmt.Sprintf("miner:%s:payouts", miner),                         // Full address
+		fmt.Sprintf("miner:%s:payouts", p2pool.TruncateAddress(miner)), // New truncated (8...8)
+	}
+
+	var data string
+	var err error
+	for _, key := range keysToTry {
+		data, err = a.redis.Get(ctx, key).Result()
+		if err == nil {
+			break
+		}
+	}
+
+	if err != nil {
+		// Return empty array if not found
+		a.writeJSON(w, []interface{}{})
+		return
+	}
+
+	cacheSet(cacheKey, []byte(data), CacheTTLShort)
+
+	w.Header().Set("X-Cache", "MISS")
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(sanitizeAddresses([]byte(data)))
 }
 
 // GET /api/share/{id} (cached 10s)
