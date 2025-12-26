@@ -66,10 +66,15 @@ type PoolStats struct {
 
 // NetworkStats represents mainchain network statistics
 type NetworkStats struct {
-	Height     uint64 `json:"height"`
-	Difficulty string `json:"difficulty"` // 128-bit as string
-	Reward     uint64 `json:"reward"`     // Block reward in atomic units
-	UpdatedAt  int64  `json:"updated_at"`
+	Height      uint64 `json:"height"`
+	Difficulty  string `json:"difficulty"`  // 128-bit as string
+	Reward      uint64 `json:"reward"`      // Block reward in atomic units
+	TxPoolSize  uint64 `json:"tx_pool_size"` // Pending transactions in mempool
+	Supply      uint64 `json:"supply"`      // Total supply (circulating + staked) in atomic units
+	Circulating uint64 `json:"circulating"` // Liquid, spendable coins (SAL1)
+	Staked      uint64 `json:"staked"`      // Locked in staking (STAKE)
+	Burned      uint64 `json:"burned"`      // Permanently removed (BURN)
+	UpdatedAt   int64  `json:"updated_at"`
 }
 
 // FoundBlock represents a found mainchain block
@@ -138,6 +143,11 @@ type Daemon struct {
 	minerPayouts      map[string][]Payout      // Address -> list of payouts
 	pplnsSnapshots    map[uint64][]string      // Block height -> ordered miner addresses at discovery
 	blockFinders      map[uint64]string        // Block height -> finder address (persisted)
+	lastSupplyTime    time.Time                // When we last fetched supply
+	lastSupply        uint64                   // Cached total supply (circulating + staked)
+	lastCirculating   uint64                   // Cached circulating supply
+	lastStaked        uint64                   // Cached staked supply
+	lastBurned        uint64                   // Cached burned supply
 }
 
 func main() {
@@ -465,11 +475,31 @@ func (d *Daemon) storeNetworkStats() {
 		return
 	}
 
+	// Fetch supply info - only update hourly to avoid expensive RPC calls
+	if time.Since(d.lastSupplyTime) > time.Hour || d.lastSupply == 0 {
+		if supplyInfo, err := d.salvium.GetSupplyInfo(ctx); err == nil {
+			d.lastCirculating = supplyInfo.Circulating
+			d.lastStaked = supplyInfo.Staked
+			d.lastBurned = supplyInfo.Burned
+			d.lastSupply = d.lastCirculating + d.lastStaked // Total = liquid + staked
+			d.lastSupplyTime = time.Now()
+			p2pool.Logf("DAEMON", "Updated supply: %.2fM circulating, %.2fM staked, %.2fM burned",
+				float64(d.lastCirculating)/1e8/1e6, float64(d.lastStaked)/1e8/1e6, float64(d.lastBurned)/1e8/1e6)
+		} else {
+			p2pool.Logf("DAEMON", "Failed to fetch supply: %v", err)
+		}
+	}
+
 	stats := NetworkStats{
-		Height:     info.Height,
-		Difficulty: d.mainchainDiff.String(),
-		Reward:     d.lastBlockReward,
-		UpdatedAt:  time.Now().Unix(),
+		Height:      info.Height,
+		Difficulty:  d.mainchainDiff.String(),
+		Reward:      d.lastBlockReward,
+		TxPoolSize:  info.TxPoolSize,
+		Supply:      d.lastSupply,
+		Circulating: d.lastCirculating,
+		Staked:      d.lastStaked,
+		Burned:      d.lastBurned,
+		UpdatedAt:   time.Now().Unix(),
 	}
 
 	statsJSON, _ := json.Marshal(stats)
@@ -479,6 +509,11 @@ func (d *Daemon) storeNetworkStats() {
 	d.redis.Set(ctx, "stats:network:height", info.Height, 0)
 	d.redis.Set(ctx, "stats:network:difficulty", d.mainchainDiff.Lo, 0)
 	d.redis.Set(ctx, "stats:network:reward", d.lastBlockReward, 0)
+	d.redis.Set(ctx, "stats:network:tx_pool_size", info.TxPoolSize, 0)
+	d.redis.Set(ctx, "stats:network:supply", d.lastSupply, 0)
+	d.redis.Set(ctx, "stats:network:circulating", d.lastCirculating, 0)
+	d.redis.Set(ctx, "stats:network:staked", d.lastStaked, 0)
+	d.redis.Set(ctx, "stats:network:burned", d.lastBurned, 0)
 }
 
 // storeShares stores individual share data and miner share lists
@@ -661,13 +696,30 @@ func (d *Daemon) loadFoundBlocks() {
 		if cachedFinder, ok := d.blockFinders[fb.Height]; ok {
 			fb.Finder = cachedFinder
 		} else {
-			// Look up from sidechain shares
+			// Look up from sidechain shares - match by height AND timestamp
+			// The share that found the block has matching mainchain height and timestamp
+			var bestMatch *p2pool.Share
+			var bestTimeDiff int64 = 1<<62 // Large initial value
+
 			for _, share := range d.shares {
 				if share.MainchainHeight == fb.Height {
-					fb.Finder = p2pool.TruncateAddress(share.MinerWallet.ToBase58())
-					d.blockFinders[fb.Height] = fb.Finder // Cache it
-					break
+					// Calculate time difference
+					timeDiff := int64(share.Timestamp) - fb.Timestamp
+					if timeDiff < 0 {
+						timeDiff = -timeDiff
+					}
+					if timeDiff < bestTimeDiff {
+						bestTimeDiff = timeDiff
+						bestMatch = share
+					}
 				}
+			}
+
+			if bestMatch != nil {
+				fb.Finder = p2pool.TruncateAddress(bestMatch.MinerWallet.ToBase58())
+				d.blockFinders[fb.Height] = fb.Finder // Cache it
+				p2pool.Logf("FOUND", "Block %d finder: %s (timestamp diff: %ds)",
+					fb.Height, fb.Finder, bestTimeDiff)
 			}
 		}
 

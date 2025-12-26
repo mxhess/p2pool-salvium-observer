@@ -281,6 +281,21 @@ func (a *API) handlePoolInfo(w http.ResponseWriter, r *http.Request) {
 	if reward, err := a.redis.Get(ctx, "stats:network:reward").Uint64(); err == nil {
 		result["block_reward"] = reward
 	}
+	if txPoolSize, err := a.redis.Get(ctx, "stats:network:tx_pool_size").Uint64(); err == nil {
+		result["tx_pool_size"] = txPoolSize
+	}
+	if supply, err := a.redis.Get(ctx, "stats:network:supply").Uint64(); err == nil {
+		result["total_supply"] = supply
+	}
+	if circulating, err := a.redis.Get(ctx, "stats:network:circulating").Uint64(); err == nil {
+		result["circulating_supply"] = circulating
+	}
+	if staked, err := a.redis.Get(ctx, "stats:network:staked").Uint64(); err == nil {
+		result["staked_supply"] = staked
+	}
+	if burned, err := a.redis.Get(ctx, "stats:network:burned").Uint64(); err == nil {
+		result["burned_supply"] = burned
+	}
 
 	// PPLNS window info
 	var pplnsWindow map[string]interface{}

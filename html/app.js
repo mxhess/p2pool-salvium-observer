@@ -23,6 +23,15 @@ const Utils = {
         return (atomic / 1e8).toFixed(4) + ' SAL';
     },
 
+    // Format SAL supply (large amounts with M/B suffixes)
+    formatSALSupply(atomic) {
+        const sal = atomic / 1e8;
+        if (sal >= 1e9) return (sal / 1e9).toFixed(2) + 'B SAL';
+        if (sal >= 1e6) return (sal / 1e6).toFixed(2) + 'M SAL';
+        if (sal >= 1e3) return (sal / 1e3).toFixed(2) + 'K SAL';
+        return sal.toFixed(2) + ' SAL';
+    },
+
     // Format difficulty
     formatDifficulty(d) {
         if (d >= 1e12) return (d / 1e12).toFixed(2) + ' T';

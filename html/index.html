@@ -65,8 +65,8 @@
                 <div class="value" id="network-diff">--</div>
             </div>
             <div class="stat-card">
-                <h3>Block Reward</h3>
-                <div class="value" id="block-reward">--</div>
+                <h3>Tx Pool Size</h3>
+                <div class="value" id="tx-pool-size">--</div>
             </div>
         </div>
 
@@ -87,6 +87,26 @@
             <div class="stat-card">
                 <h3>Last Block Found</h3>
                 <div class="value" id="last-block">--</div>
+            </div>
+        </div>
+
+        <!-- Stats Row 4: Supply Stats -->
+        <div class="stats-grid" style="margin-top: 1rem;">
+            <div class="stat-card">
+                <h3>Block Reward</h3>
+                <div class="value" id="block-reward">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Supply</h3>
+                <div class="value" id="total-supply">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Circulating</h3>
+                <div class="value" id="circulating-supply">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Staked</h3>
+                <div class="value" id="staked-supply">--</div>
             </div>
         </div>
 
@@ -215,8 +235,24 @@
                     document.getElementById('pool-percent').textContent = poolPercent.toFixed(2) + '%';
                 }
 
-                // Block reward
-                if (info.block_reward) document.getElementById('block-reward').textContent = Utils.formatSALShort(info.block_reward);
+                // Tx Pool Size
+                if (info.tx_pool_size !== undefined) {
+                    document.getElementById('tx-pool-size').textContent = info.tx_pool_size;
+                }
+
+                // Supply stats (row 4)
+                if (info.block_reward) {
+                    document.getElementById('block-reward').textContent = Utils.formatSALShort(info.block_reward);
+                }
+                if (info.total_supply) {
+                    document.getElementById('total-supply').textContent = Utils.formatSALSupply(info.total_supply);
+                }
+                if (info.circulating_supply) {
+                    document.getElementById('circulating-supply').textContent = Utils.formatSALSupply(info.circulating_supply);
+                }
+                if (info.staked_supply) {
+                    document.getElementById('staked-supply').textContent = Utils.formatSALSupply(info.staked_supply);
+                }
 
                 // Mining stats
                 if (info.miners !== undefined) document.getElementById('active-miners').textContent = info.miners;

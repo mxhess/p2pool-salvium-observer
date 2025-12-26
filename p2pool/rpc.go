@@ -278,6 +278,89 @@ func (c *SalviumClient) GetBlock(ctx context.Context, height uint64) (*GetBlockR
 	return result, nil
 }
 
+// CoinbaseTxSumResult contains the response from get_coinbase_tx_sum RPC call.
+type CoinbaseTxSumResult struct {
+	EmissionAmount      uint64 `json:"emission_amount"`
+	EmissionAmountTop64 uint64 `json:"emission_amount_top64"`
+	FeeAmount           uint64 `json:"fee_amount"`
+	FeeAmountTop64      uint64 `json:"fee_amount_top64"`
+	Status              string `json:"status"`
+}
+
+// GetCoinbaseTxSum retrieves the total emission (supply) and fees for blocks from height 0 to the given height.
+func (c *SalviumClient) GetCoinbaseTxSum(ctx context.Context, height uint64) (*CoinbaseTxSumResult, error) {
+	result := &CoinbaseTxSumResult{}
+	params := map[string]uint64{
+		"height": 0,
+		"count":  height, // Sum blocks 0 through height-1 (count must not exceed chain length)
+	}
+	if err := c.jsonrpc(ctx, "get_coinbase_tx_sum", params, result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// GetTotalSupply returns the total circulating supply in atomic units.
+func (c *SalviumClient) GetTotalSupply(ctx context.Context, height uint64) (uint64, error) {
+	sum, err := c.GetCoinbaseTxSum(ctx, height)
+	if err != nil {
+		return 0, err
+	}
+	// For now, just use the lower 64 bits - Salvium supply fits in uint64
+	// Full 128-bit would be: (sum.EmissionAmountTop64 << 64) | sum.EmissionAmount
+	return sum.EmissionAmount, nil
+}
+
+// SupplyEntry represents a single supply category from get_supply_info
+type SupplyEntry struct {
+	Amount        string `json:"amount"`
+	CurrencyLabel string `json:"currency_label"`
+}
+
+// SupplyInfoResult contains the response from get_supply_info RPC call.
+type SupplyInfoResult struct {
+	Height      uint64        `json:"height"`
+	SupplyTally []SupplyEntry `json:"supply_tally"`
+	Status      string        `json:"status"`
+}
+
+// SupplyInfo contains parsed supply information
+type SupplyInfo struct {
+	Height      uint64 // Chain height
+	Circulating uint64 // SAL1 - liquid, spendable coins
+	Staked      uint64 // STAKE - locked in staking
+	Burned      uint64 // BURN - permanently removed
+}
+
+// GetSupplyInfo retrieves detailed supply breakdown (circulating, staked, burned).
+func (c *SalviumClient) GetSupplyInfo(ctx context.Context) (*SupplyInfo, error) {
+	result := &SupplyInfoResult{}
+	if err := c.jsonrpc(ctx, "get_supply_info", nil, result); err != nil {
+		return nil, err
+	}
+
+	info := &SupplyInfo{Height: result.Height}
+	for _, entry := range result.SupplyTally {
+		amount, _ := parseUint64(entry.Amount)
+		switch entry.CurrencyLabel {
+		case "SAL1":
+			info.Circulating = amount
+		case "STAKE":
+			info.Staked = amount
+		case "BURN":
+			info.Burned = amount
+		}
+	}
+	return info, nil
+}
+
+// parseUint64 parses a string to uint64, returns 0 on error
+func parseUint64(s string) (uint64, error) {
+	var v uint64
+	_, err := fmt.Sscanf(s, "%d", &v)
+	return v, err
+}
+
 // GetCoinbaseOutputs retrieves the coinbase output amounts for a block at the given height.
 func (c *SalviumClient) GetCoinbaseOutputs(ctx context.Context, height uint64) ([]uint64, error) {
 	block, err := c.GetBlock(ctx, height)

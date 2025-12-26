@@ -704,6 +704,15 @@ body.dark .stat-card {
     color: var(--whisky-gold);
 }
 
+.stat-card .subtitle {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--whisky-amber);
+    opacity: 0.8;
+    margin-top: 0.25rem;
+}
+
 #hashrate-card,
 #paid-card {
     cursor: pointer;
