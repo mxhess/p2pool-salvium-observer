@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P2Pool Salvium</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="dark">
     <div class="content center">
@@ -273,12 +276,12 @@
                 }
             }
 
-            const blocks = await API.getFoundBlocks(30);
+            const blocks = await API.getFoundBlocks(50);
             renderFoundBlocks(blocks, info?.block_reward);
 
-            // Calculate average effort from blocks and update display
+            // Calculate average effort from last 50 blocks
             if (blocks && blocks.length > 1) {
-                const sorted = [...blocks].sort((a, b) => (a.height || 0) - (b.height || 0));
+                const sorted = [...blocks].sort((a, b) => (a.height || 0) - (b.height || 0)).slice(-50);
                 let totalEffort = 0;
                 let effortCount = 0;
                 for (let i = 1; i < sorted.length; i++) {

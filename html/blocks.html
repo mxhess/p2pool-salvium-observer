@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Found Blocks - P2Pool Salvium</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="dark">
     <div class="content center">
@@ -86,10 +89,11 @@
             document.getElementById('total-found').textContent = blocks.length;
             document.getElementById('blocks-24h').textContent = blocks24h;
 
-            // Calculate average effort (skip first block which has no effort)
+            // Calculate average effort from last 50 blocks (skip first which has no effort)
             let totalEffort = 0;
             let effortCount = 0;
-            for (const block of blocks) {
+            const recentBlocks = blocks.slice(0, 50); // newest 50 (already reversed)
+            for (const block of recentBlocks) {
                 if (block.effort !== null) {
                     totalEffort += block.effort;
                     effortCount++;

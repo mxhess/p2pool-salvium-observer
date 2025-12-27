@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calculator - P2Pool Salvium</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
     <style>
         .calc-input-group {
             display: flex;
@@ -16,7 +19,7 @@
             justify-content: center;
         }
         .calc-input-group label {
-            color: var(--whisky-amber);
+            color: var(--crt-green);
             font-weight: 500;
         }
         .calc-input-group input {
@@ -29,24 +32,25 @@
             font-size: 16px;
         }
         .calc-result-card {
-            background: rgba(210, 105, 30, 0.1);
-            border-radius: 5px;
+            background: rgba(0, 255, 65, 0.05);
+            border-radius: 2px;
             padding: 1rem;
             margin-bottom: 0.5rem;
-            border-left: 4px solid var(--whisky-gold);
+            border-left: 4px solid var(--crt-green-bright);
         }
         .calc-result-card h3 {
-            color: var(--whisky-amber);
+            color: var(--crt-green);
             margin-bottom: 0.5rem;
             font-size: 14px;
         }
         .calc-result-card .value {
             font-size: 20px;
             font-weight: 700;
-            color: var(--whisky-gold);
+            color: var(--crt-green-bright);
+            text-shadow: 0 0 8px rgba(57, 255, 20, 0.5);
         }
         .calc-result-card .detail {
-            color: #8B7653;
+            color: var(--crt-text-dim);
             font-size: 12px;
             margin-top: 0.25rem;
         }
@@ -65,7 +69,7 @@
         </nav>
 
         <h1 style="text-align: center; margin-bottom: 0.5rem;">Mining Calculator</h1>
-        <p style="text-align: center; margin-bottom: 2rem; color: #8B7653;">Estimate your mining rewards and share frequency</p>
+        <p style="text-align: center; margin-bottom: 2rem; color: var(--crt-text-dim);">Estimate your mining rewards and share frequency</p>
 
         <!-- Calculator Inputs -->
         <div class="calc-input-group">
@@ -129,7 +133,7 @@
         <!-- Effort Probability Table -->
         <div style="margin-top: 2rem;">
             <h2 class="txtmed C1" style="margin-bottom: 1rem;">Effort Probability</h2>
-            <p style="margin-bottom: 1rem; color: #8B7653; font-size: 12px;">
+            <p style="margin-bottom: 1rem; color: var(--crt-text-dim); font-size: 12px;">
                 Time to find a share at different effort levels
             </p>
             <table class="data-table">
