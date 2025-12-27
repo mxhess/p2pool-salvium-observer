@@ -31,8 +31,8 @@
                 <div class="value" id="blocks-24h">--</div>
             </div>
             <div class="stat-card">
-                <h3>Average Effort</h3>
-                <div class="value" id="avg-effort">--</div>
+                <h3>Current / Avg Effort</h3>
+                <div class="value" id="effort-display">--</div>
             </div>
             <div class="stat-card">
                 <h3>Last Block</h3>
@@ -95,8 +95,14 @@
                     effortCount++;
                 }
             }
+            const currentEffort = poolInfo?.effort?.current_effort ?? poolInfo?.effort?.current ?? poolInfo?.current_effort;
             if (effortCount > 0) {
-                document.getElementById('avg-effort').textContent = (totalEffort / effortCount).toFixed(1) + '%';
+                const avgEffort = (totalEffort / effortCount).toFixed(1);
+                if (currentEffort !== undefined) {
+                    document.getElementById('effort-display').textContent = currentEffort.toFixed(1) + '% / ' + avgEffort + '%';
+                } else {
+                    document.getElementById('effort-display').textContent = '-- / ' + avgEffort + '%';
+                }
             }
 
             // Last block time

@@ -77,7 +77,7 @@
                 <div class="value" id="active-miners">--</div>
             </div>
             <div class="stat-card">
-                <h3>Current Effort</h3>
+                <h3>Current / Avg Effort</h3>
                 <div class="value" id="current-effort">--</div>
             </div>
             <div class="stat-card">
@@ -266,13 +266,40 @@
                     document.getElementById('window-blocks').textContent = `${windowBlocks} (+${windowUncles} uncles)`;
                 }
 
-                // Effort
-                const effort = info.effort?.current_effort ?? info.effort?.current ?? info.current_effort;
-                if (effort !== undefined) document.getElementById('current-effort').textContent = effort.toFixed(1) + '%';
+                // Current effort (will add average after loading blocks)
+                const currentEffort = info.effort?.current_effort ?? info.effort?.current ?? info.current_effort;
+                if (currentEffort !== undefined) {
+                    document.getElementById('current-effort').textContent = currentEffort.toFixed(1) + '%';
+                }
             }
 
-            const blocks = await API.getFoundBlocks(10);
-            renderFoundBlocks(blocks, info?.block_reward);
+            const blocks = await API.getFoundBlocks(30);
+            renderFoundBlocks(blocks.slice(0, 10), info?.block_reward);
+
+            // Calculate average effort from blocks and update display
+            if (blocks && blocks.length > 1) {
+                const sorted = [...blocks].sort((a, b) => (a.height || 0) - (b.height || 0));
+                let totalEffort = 0;
+                let effortCount = 0;
+                for (let i = 1; i < sorted.length; i++) {
+                    const prevHashes = parseFloat(sorted[i-1].total_hashes || 0);
+                    const currHashes = parseFloat(sorted[i].total_hashes || 0);
+                    const roundHashes = currHashes - prevHashes;
+                    const diff = parseFloat(sorted[i].difficulty || 1);
+                    if (roundHashes > 0 && diff > 0) {
+                        totalEffort += (roundHashes / diff) * 100;
+                        effortCount++;
+                    }
+                }
+                if (effortCount > 0) {
+                    const avgEffort = totalEffort / effortCount;
+                    const currentEffort = info?.effort?.current_effort ?? info?.effort?.current ?? info?.current_effort;
+                    if (currentEffort !== undefined) {
+                        document.getElementById('current-effort').textContent =
+                            currentEffort.toFixed(1) + '% / ' + avgEffort.toFixed(1) + '%';
+                    }
+                }
+            }
 
             const shares = await API.getSideBlocks(15);
             renderRecentShares(shares);
