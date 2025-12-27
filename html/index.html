@@ -274,7 +274,7 @@
             }
 
             const blocks = await API.getFoundBlocks(30);
-            renderFoundBlocks(blocks.slice(0, 10), info?.block_reward);
+            renderFoundBlocks(blocks, info?.block_reward);
 
             // Calculate average effort from blocks and update display
             if (blocks && blocks.length > 1) {
