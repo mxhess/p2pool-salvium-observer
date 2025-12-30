@@ -175,12 +175,12 @@
                 const reward = block.reward || blockReward;
                 const explorerUrl = hash !== '--' ? `https://explorer.salvium.io/block/${hash}` : '#';
                 html += `<tr>
-                    <td><a href="block.html?height=${height}">${height}</a></td>
-                    <td class="mono"><a href="${explorerUrl}" target="_blank" rel="noopener">${hashShort}</a></td>
-                    <td>${reward ? Utils.formatSALShort(reward) : '--'}</td>
-                    <td>${block.difficulty ? Utils.formatDifficulty(parseFloat(block.difficulty)) : '--'}</td>
-                    <td>${effort}</td>
-                    <td>${block.timestamp ? Utils.timeAgo(block.timestamp) : '--'}</td>
+                    <td data-label="Height"><a href="block.html?height=${height}">${height}</a></td>
+                    <td data-label="Hash" class="mono"><a href="${explorerUrl}" target="_blank" rel="noopener">${hashShort}</a></td>
+                    <td data-label="Reward">${reward ? Utils.formatSALShort(reward) : '--'}</td>
+                    <td data-label="Difficulty">${block.difficulty ? Utils.formatDifficulty(parseFloat(block.difficulty)) : '--'}</td>
+                    <td data-label="Effort">${effort}</td>
+                    <td data-label="Age">${block.timestamp ? Utils.timeAgo(block.timestamp) : '--'}</td>
                 </tr>`;
             }
             html += '</tbody></table>';
@@ -201,11 +201,11 @@
                 const mainHeight = share.main_height || '--';
                 const templateId = share.template_id || '';
                 html += `<tr>
-                    <td><a href="share.html?id=${templateId}">${sideHeight}</a></td>
-                    <td>${mainHeight}</td>
-                    <td class="miner-address">${Utils.truncateAddress(addr)}</td>
-                    <td>${share.difficulty ? Utils.formatDifficulty(share.difficulty) : '--'}</td>
-                    <td>${share.timestamp ? Utils.timeAgo(share.timestamp) : '--'}</td>
+                    <td data-label="P2Pool Height"><a href="share.html?id=${templateId}">${sideHeight}</a></td>
+                    <td data-label="Salvium Height">${mainHeight}</td>
+                    <td data-label="Found By" class="mono">${Utils.truncateAddress(addr)}</td>
+                    <td data-label="Difficulty">${share.difficulty ? Utils.formatDifficulty(share.difficulty) : '--'}</td>
+                    <td data-label="Age">${share.timestamp ? Utils.timeAgo(share.timestamp) : '--'}</td>
                 </tr>`;
             }
             html += '</tbody></table>';

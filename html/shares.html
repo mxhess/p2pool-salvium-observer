@@ -87,11 +87,11 @@
                 const rowClass = inWindow ? '' : 'style="opacity: 0.5;"';
 
                 html += `<tr ${rowClass}>
-                    <td><a href="share.html?id=${templateId}">${height}</a></td>
-                    <td class="mono">${miner}</td>
-                    <td>${share.difficulty ? Utils.formatDifficulty(parseFloat(share.difficulty)) : '--'}</td>
-                    <td>${share.main_height || '--'}</td>
-                    <td>${share.timestamp ? Utils.timeAgo(share.timestamp) : '--'}</td>
+                    <td data-label="Height"><a href="share.html?id=${templateId}">${height}</a></td>
+                    <td data-label="Miner" class="mono">${miner}</td>
+                    <td data-label="Difficulty">${share.difficulty ? Utils.formatDifficulty(parseFloat(share.difficulty)) : '--'}</td>
+                    <td data-label="Main Height">${share.main_height || '--'}</td>
+                    <td data-label="Age">${share.timestamp ? Utils.timeAgo(share.timestamp) : '--'}</td>
                 </tr>`;
             }
             html += '</tbody></table>';

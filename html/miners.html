@@ -77,10 +77,10 @@
                 const weight = typeof miner.weight === 'string' ? parseFloat(miner.weight) : (miner.weight || 0);
                 const percent = totalWeight > 0 ? weight / totalWeight * 100 : 0;
                 html += `<tr>
-                    <td>${i + 1}</td>
-                    <td class="miner-address">${Utils.truncateAddress(miner.address)}</td>
-                    <td>${Utils.formatDifficulty(weight)}</td>
-                    <td>${percent.toFixed(4)}%</td>
+                    <td data-label="#">${i + 1}</td>
+                    <td data-label="Miner" class="mono">${Utils.truncateAddress(miner.address)}</td>
+                    <td data-label="Weight">${Utils.formatDifficulty(weight)}</td>
+                    <td data-label="Share %">${percent.toFixed(4)}%</td>
                 </tr>`;
             });
             html += '</tbody></table>';

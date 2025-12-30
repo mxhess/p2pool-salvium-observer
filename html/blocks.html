@@ -121,11 +121,11 @@
                 const reward = block.reward || blockReward;
                 const finder = block.finder || '--';
                 html += `<tr id="block-${height}">
-                    <td><a href="block.html?height=${height}">${height}</a></td>
-                    <td class="mono">${finder}</td>
-                    <td>${reward ? Utils.formatSALShort(reward) : '--'}</td>
-                    <td>${effort}</td>
-                    <td>${block.timestamp ? Utils.timeAgo(block.timestamp) : '--'}</td>
+                    <td data-label="Height"><a href="block.html?height=${height}">${height}</a></td>
+                    <td data-label="Finder" class="mono">${finder}</td>
+                    <td data-label="Reward">${reward ? Utils.formatSALShort(reward) : '--'}</td>
+                    <td data-label="Effort">${effort}</td>
+                    <td data-label="Age">${block.timestamp ? Utils.timeAgo(block.timestamp) : '--'}</td>
                 </tr>`;
             }
             html += '</tbody></table>';
