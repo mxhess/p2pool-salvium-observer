@@ -30,6 +30,10 @@ type MinerWeight struct {
 	// Position tracking for visualization (30 buckets across window)
 	ShareBuckets [PositionBuckets]int // Count of shares per bucket
 	UncleBuckets [PositionBuckets]int // Count of uncles per bucket
+
+	// Raw positions before bucketing (depth in window, 0 = tip)
+	sharePositions []int
+	unclePositions []int
 }
 
 // PPLNSResult contains the full PPLNS calculation result
@@ -94,17 +98,6 @@ func CalculatePPLNS(shares map[Hash]*Share, tip *Share, mainchainDiff Difficulty
 		curWeight := cur.Difficulty
 		bottomTimestamp = cur.Timestamp // Update as we go
 
-		// Calculate position bucket for current share (0 = newest, PositionBuckets-1 = oldest)
-		// C++: window_index = block_depth * (N - 1) / (window_size - 1)
-		// This maps [0, window_size-1] to [0, N-1]
-		bucket := 0
-		if PPLNSWindow > 1 {
-			bucket = (blockDepth * (PositionBuckets - 1)) / (PPLNSWindow - 1)
-		}
-		if bucket >= PositionBuckets {
-			bucket = PositionBuckets - 1
-		}
-
 		// Process uncles
 		for _, uncleId := range cur.Uncles {
 			uncle, ok := shares[uncleId]
@@ -141,16 +134,16 @@ func CalculatePPLNS(shares map[Hash]*Share, tip *Share, mainchainDiff Difficulty
 			// C++: cur_weight += uncle_penalty;
 			curWeight = curWeight.Add(unclePenalty)
 
-			// Uncle uses the same bucket as its parent block (C++ line 1162)
-			// C++: ++our_uncles_in_window[window_index];
-			addWeight(result.Shares, uncle.MinerWallet, uncleWeight, true, bucket)
+			// Uncle uses the same depth as its parent block
+			// We'll finalize buckets after determining actual window size
+			addWeight(result.Shares, uncle.MinerWallet, uncleWeight, true, blockDepth)
 			pplnsWeight = newPplnsWeight
 			result.UnclesIncluded++
 		}
 
 		// Always add non-uncle shares even if PPLNS weight goes above the limit
 		// C++: auto result = shares_set.emplace(cur_weight, &cur->m_minerWallet);
-		addWeight(result.Shares, cur.MinerWallet, curWeight, false, bucket)
+		addWeight(result.Shares, cur.MinerWallet, curWeight, false, blockDepth)
 		pplnsWeight = pplnsWeight.Add(curWeight)
 		result.BlocksIncluded++
 		result.BottomHeight = cur.SidechainHeight
@@ -185,42 +178,72 @@ func CalculatePPLNS(shares map[Hash]*Share, tip *Share, mainchainDiff Difficulty
 
 	result.TotalWeight = pplnsWeight
 	result.WindowDuration = int64(tipTimestamp - bottomTimestamp)
+
+	// Now finalize bucket positions based on actual window size
+	finalizeBuckets(result.Shares, result.BlocksIncluded)
+
 	return result
 }
 
 // addWeight adds weight to a miner's accumulated weight
-// bucket is the position bucket (0 = newest, PositionBuckets-1 = oldest)
-func addWeight(shares map[Address]*MinerWeight, addr Address, weight Difficulty, isUncle bool, bucket int) {
-	if mw, ok := shares[addr]; ok {
-		mw.Weight = mw.Weight.Add(weight)
-		if isUncle {
-			mw.UncleCount++
-			if bucket >= 0 && bucket < PositionBuckets {
-				mw.UncleBuckets[bucket]++
-			}
-		} else {
-			mw.ShareCount++
-			if bucket >= 0 && bucket < PositionBuckets {
-				mw.ShareBuckets[bucket]++
-			}
-		}
-	} else {
-		mw := &MinerWeight{
+// depth is the block depth in the window (0 = tip/newest)
+func addWeight(shares map[Address]*MinerWeight, addr Address, weight Difficulty, isUncle bool, depth int) {
+	mw, ok := shares[addr]
+	if !ok {
+		mw = &MinerWeight{
 			Address: addr,
-			Weight:  weight,
-		}
-		if isUncle {
-			mw.UncleCount = 1
-			if bucket >= 0 && bucket < PositionBuckets {
-				mw.UncleBuckets[bucket] = 1
-			}
-		} else {
-			mw.ShareCount = 1
-			if bucket >= 0 && bucket < PositionBuckets {
-				mw.ShareBuckets[bucket] = 1
-			}
 		}
 		shares[addr] = mw
+	}
+
+	mw.Weight = mw.Weight.Add(weight)
+	if isUncle {
+		mw.UncleCount++
+		mw.unclePositions = append(mw.unclePositions, depth)
+	} else {
+		mw.ShareCount++
+		mw.sharePositions = append(mw.sharePositions, depth)
+	}
+}
+
+// finalizeBuckets calculates bucket positions based on actual window size
+func finalizeBuckets(shares map[Address]*MinerWeight, actualWindowSize int) {
+	if actualWindowSize <= 0 {
+		actualWindowSize = 1
+	}
+
+	for _, mw := range shares {
+		// Clear buckets
+		for i := range mw.ShareBuckets {
+			mw.ShareBuckets[i] = 0
+		}
+		for i := range mw.UncleBuckets {
+			mw.UncleBuckets[i] = 0
+		}
+
+		// Assign shares to buckets based on actual window size
+		for _, depth := range mw.sharePositions {
+			bucket := 0
+			if actualWindowSize > 1 {
+				bucket = (depth * (PositionBuckets - 1)) / (actualWindowSize - 1)
+			}
+			if bucket >= PositionBuckets {
+				bucket = PositionBuckets - 1
+			}
+			mw.ShareBuckets[bucket]++
+		}
+
+		// Assign uncles to buckets
+		for _, depth := range mw.unclePositions {
+			bucket := 0
+			if actualWindowSize > 1 {
+				bucket = (depth * (PositionBuckets - 1)) / (actualWindowSize - 1)
+			}
+			if bucket >= PositionBuckets {
+				bucket = PositionBuckets - 1
+			}
+			mw.UncleBuckets[bucket]++
+		}
 	}
 }
 
