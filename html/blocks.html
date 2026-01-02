@@ -86,7 +86,7 @@
             const now = Date.now() / 1000;
             const blocks24h = blocks.filter(b => b.timestamp && (now - b.timestamp) < 86400).length;
 
-            document.getElementById('total-found').textContent = blocks.length;
+            document.getElementById('total-found').textContent = poolInfo?.blocks_found || blocks.length;
             document.getElementById('blocks-24h').textContent = blocks24h;
 
             // Calculate average effort from last 50 blocks (skip first which has no effort)
