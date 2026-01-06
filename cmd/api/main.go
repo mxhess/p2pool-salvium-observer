@@ -158,6 +158,9 @@ func (a *API) registerRoutes() {
 
 	// Found block details (with PPLNS snapshot and payouts)
 	a.router.HandleFunc("/api/found_block/{height}", a.handleFoundBlockDetails).Methods("GET")
+
+	// Stats endpoint (cryptonote-nodejs-pool compatible format)
+	a.router.HandleFunc("/api/stats", a.handleStats).Methods("GET")
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
@@ -1082,6 +1085,136 @@ func (a *API) handleFoundBlockDetails(w http.ResponseWriter, r *http.Request) {
 	// Cache the response
 	if jsonData, err := json.Marshal(result); err == nil {
 		cacheSet(cacheKey, jsonData, CacheTTLMedium) // 60s cache
+	}
+
+	w.Header().Set("X-Cache", "MISS")
+	a.writeJSON(w, result)
+}
+
+// GET /api/stats - cryptonote-nodejs-pool compatible stats endpoint (cached 10s)
+func (a *API) handleStats(w http.ResponseWriter, r *http.Request) {
+	cacheKey := "api:stats"
+
+	if data, ok := cacheGet(cacheKey); ok {
+		a.writeSanitizedCache(w, data)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Build the response structure
+	result := make(map[string]interface{})
+
+	// Config section (static P2Pool-specific values)
+	config := map[string]interface{}{
+		"poolHost":             "www.whiskymine.io",
+		"ports":                []interface{}{}, // P2Pool has no ports - miners connect to p2pool directly
+		"cnAlgorithm":          "randomx",
+		"coin":                 "salvium",
+		"coinUnits":            100000000,
+		"coinDecimalPlaces":    8,
+		"coinDifficultyTarget": 120,
+		"symbol":               "SAL",
+		"version":              "p2pool-salvium-observer",
+	}
+	result["config"] = config
+
+	// Pool section
+	pool := make(map[string]interface{})
+
+	if miners, err := a.redis.Get(ctx, "stats:pool:miners").Int(); err == nil {
+		pool["miners"] = miners
+	}
+	if hashrate, err := a.redis.Get(ctx, "stats:pool:hashrate").Uint64(); err == nil {
+		pool["hashrate"] = hashrate
+	}
+	if blocksFound, err := a.redis.Get(ctx, "stats:pool:blocks_found").Int(); err == nil {
+		pool["totalBlocks"] = blocksFound
+	}
+	if lastFoundTime, err := a.redis.Get(ctx, "stats:pool:last_found_time").Int64(); err == nil {
+		pool["lastBlockFound"] = lastFoundTime * 1000 // Convert to milliseconds
+	}
+
+	// PPLNS window info
+	if pplnsData, err := a.redis.Get(ctx, "cache:pplns:full").Result(); err == nil {
+		var pplns map[string]interface{}
+		if json.Unmarshal([]byte(pplnsData), &pplns) == nil {
+			if blocks, ok := pplns["blocks_included"]; ok {
+				pool["pplnsWindowBlocks"] = blocks
+			}
+			if duration, ok := pplns["window_duration"]; ok {
+				pool["pplnsWindowDuration"] = duration
+			}
+		}
+	}
+
+	// Get recent found blocks (limit to 30)
+	if blocksData, err := a.redis.Get(ctx, "cache:found_blocks").Result(); err == nil {
+		var allBlocks []map[string]interface{}
+		if json.Unmarshal([]byte(blocksData), &allBlocks) == nil {
+			// Take the last 30 blocks (most recent)
+			blockLimit := 30
+			startIdx := 0
+			if len(allBlocks) > blockLimit {
+				startIdx = len(allBlocks) - blockLimit
+			}
+			recentBlocks := allBlocks[startIdx:]
+
+			// Reverse to show newest first
+			formattedBlocks := make([]map[string]interface{}, 0, len(recentBlocks))
+			for i := len(recentBlocks) - 1; i >= 0; i-- {
+				block := recentBlocks[i]
+				formatted := map[string]interface{}{
+					"height":     block["height"],
+					"hash":       block["hash"],
+					"time":       block["timestamp"],
+					"difficulty": block["difficulty"],
+					"reward":     block["reward"],
+					"miner":      block["finder"],
+				}
+				formattedBlocks = append(formattedBlocks, formatted)
+			}
+			pool["blocks"] = formattedBlocks
+		}
+	}
+
+	result["pool"] = pool
+
+	// Network section
+	network := make(map[string]interface{})
+
+	if height, err := a.redis.Get(ctx, "stats:network:height").Uint64(); err == nil {
+		network["height"] = height
+	}
+	if diff, err := a.redis.Get(ctx, "stats:network:difficulty").Uint64(); err == nil {
+		network["difficulty"] = diff
+		// Calculate network hashrate from difficulty (difficulty / block_time)
+		network["hashrate"] = diff / 120
+	}
+
+	result["network"] = network
+
+	// Last block section
+	lastblock := make(map[string]interface{})
+
+	// Get the most recent found block for lastblock info
+	if blocksData, err := a.redis.Get(ctx, "cache:found_blocks").Result(); err == nil {
+		var allBlocks []map[string]interface{}
+		if json.Unmarshal([]byte(blocksData), &allBlocks) == nil && len(allBlocks) > 0 {
+			lastFound := allBlocks[len(allBlocks)-1]
+			lastblock["height"] = lastFound["height"]
+			lastblock["hash"] = lastFound["hash"]
+			lastblock["timestamp"] = lastFound["timestamp"]
+			lastblock["difficulty"] = lastFound["difficulty"]
+			lastblock["reward"] = lastFound["reward"]
+		}
+	}
+
+	result["lastblock"] = lastblock
+
+	// Cache the response
+	if jsonData, err := json.Marshal(result); err == nil {
+		cacheSet(cacheKey, jsonData, CacheTTLShort)
 	}
 
 	w.Header().Set("X-Cache", "MISS")
